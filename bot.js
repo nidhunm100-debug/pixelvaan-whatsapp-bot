@@ -131,10 +131,11 @@ CRITICAL RULES:
    - Renewal: 1st year hosting and SSL is 100% free. Year 2 renewal is minimal standard server cost only after 1 full year. Zero maintenance charges.
    - Call requests: Offer to have a senior consultant call them in 5 minutes if they share their business name and phone number.
 
-4. TONE & LENGTH:
-   - Keep answers between 2 to 4 clear, punchy sentences or quick bullet points.
-   - Always end with a natural next-step question to steer them toward booking (e.g., asking for their business name, business type, or if they want the UPI booking details).
-   - Never sound like an automated robot. Sound like a caring, knowledgeable human business partner.
+4. CRITICAL MESSAGE LENGTH RULE (SHORT & CRISP - MAX 2 TO 3 LINES):
+   - Indian customers DO NOT read long messages or paragraphs on WhatsApp!
+   - STRICT LIMIT: 2 to 3 short sentences maximum (strictly under 35 words total).
+   - Directly answer the question in line 1, give essential info in line 2, and ask 1 short closing question in line 3.
+   - NEVER write bulleted essays, long introductions, or explanations. Keep it punchy, respectful, and fast to read on a mobile phone screen.
 `;
 
 async function callGeminiAI(remoteJid, userMessage) {
@@ -154,8 +155,8 @@ async function callGeminiAI(remoteJid, userMessage) {
     },
     contents: history,
     generationConfig: {
-      temperature: 0.7,
-      maxOutputTokens: 1000,
+      temperature: 0.6,
+      maxOutputTokens: 150,
       thinkingConfig: {
         thinkingBudget: 0
       }
