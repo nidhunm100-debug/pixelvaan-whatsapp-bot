@@ -22,12 +22,12 @@ app.get('/', (req, res) => {
           <h2 style="color: #128C7E;">Pixelvaan Master Sales AI</h2>
           <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & QUALIFYING LEADS 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
           <div style="background: #E8F5E9; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; color: #2E7D32;">
-            <strong>🎯 Intelligent Indian Sales Engine Active:</strong>
+            <strong>🎯 Always-Responsive Sales Engine:</strong>
             <ul style="margin: 8px 0 0 20px; padding: 0;">
-              <li><strong>Language Mirroring:</strong> English questions get English answers; Hindi gets Hindi.</li>
-              <li><strong>Full Question Answering:</strong> Answers domain, pages, e-commerce, renewal, logo, editing, and timing questions.</li>
-              <li><strong>Lead Qualification:</strong> Smoothly guides every conversation toward ₹5,999 booking.</li>
-              <li><strong>Strict Ad-Only:</strong> Completely ignores personal chats, friends, and family.</li>
+              <li><strong>Zero Silence:</strong> Answers any customer greeting, question, or inquiry.</li>
+              <li><strong>Language Mirroring:</strong> English questions get English replies; Hindi gets Hindi.</li>
+              <li><strong>Consultative Answers:</strong> Explains domain, pages, e-commerce, logos, pricing, and turnaround times.</li>
+              <li><strong>Smart Contact Protection:</strong> Automatically pauses when the business owner chats manually.</li>
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
@@ -149,28 +149,43 @@ async function humanReply(sock, remoteJid, text, delayMs = 1800) {
   }
 }
 
-// Exact Meta Ad Detection Function
-function isMessageFromMetaAd(msg, text) {
+// Comprehensive Lead and Ad Trigger Detection
+function isCustomerInquiry(msg, text) {
   const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
                       msg.message?.imageMessage?.contextInfo ||
                       msg.message?.contextInfo;
 
+  // 1. Meta Ad Metadata
   if (contextInfo?.externalAdReply) return true;
   if (contextInfo?.conversionData || contextInfo?.sourceId) return true;
 
   const lower = text.toLowerCase().trim();
-  const adIcebreakers = [
+
+  // 2. Ad icebreakers and keyword triggers
+  const inquiryKeywords = [
+    // Kannada ad triggers
     'ನಿಮ್ಮ ವ್ಯಾಪಾರದ ಕುರಿತು ನಾನು ಇನ್ನಷ್ಟು ತಿಳಿದುಕೊಳ್ಳಬಹುದೇ',
     'ನಿಮ್ಮ ಜಾಹೀರಾತಿನ ಕುರಿತು ನೀವು ನನಗೆ ಇನ್ನಷ್ಟು ಹೇಳಬಹುದೇ',
     'ಯಾರಾದರೂ ಚಾಟ್ ಮಾಡಲು ಲಭ್ಯವಿರುವರೇ',
+    // English ad triggers & common greetings
     'can i learn more about your business',
     'can you tell me more about your ad',
     'is anyone available to chat',
     '5999', '₹5,999', 'pixelvaan', 'what\'s the catch', 'website package',
-    'website chahiye', 'website banana hai', 'website offer', 'sample', 'details'
+    'hi', 'hello', 'hey', 'namaste',
+    // Customer intention keywords
+    'website', 'web', 'page', 'site', 'price', 'cost', 'rate', 'kitna', 'charges',
+    'sample', 'samples', 'work', 'demo', 'portfolio', 'project', 'designs',
+    'domain', 'hosting', 'logo', 'details', 'info', 'bhejo', 'chahiye',
+    'banana hai', 'kaam', 'start', 'offer', 'how much', 'interested'
   ];
 
-  if (adIcebreakers.some(trigger => lower.includes(trigger.toLowerCase()))) {
+  if (inquiryKeywords.some(keyword => lower.includes(keyword.toLowerCase()))) {
+    return true;
+  }
+
+  // If text is asking any question ending in '?' or general inquiry
+  if (lower.includes('?') || lower.length > 5) {
     return true;
   }
 
@@ -216,14 +231,15 @@ async function connectToWhatsApp() {
       if (!msg.message) return;
 
       const remoteJid = msg.key.remoteJid;
-      if (!remoteJid || remoteJid.endsWith('@g.us')) return;
+      if (!remoteJid || remoteJid.endsWith('@g.us')) return; // Ignore groups
 
-      // Human takeover: if owner replies from phone, mute bot for 24h
+      // Human takeover: if owner replies from phone, mute bot for 24 hours
       if (msg.key.fromMe) {
         mutedUsers.set(remoteJid, Date.now() + 24 * 60 * 60 * 1000);
         return;
       }
 
+      // Check if muted by human owner
       if (mutedUsers.has(remoteJid) && Date.now() < mutedUsers.get(remoteJid)) {
         return;
       }
@@ -237,10 +253,10 @@ async function connectToWhatsApp() {
 
       const isKnownAdLead = confirmedAdLeads.has(remoteJid);
 
-      // STRICT AD CHECK: Only trigger on people arriving from the Meta Ad!
+      // Lead check: First time message must look like a customer inquiry or ad lead
       if (!isKnownAdLead) {
-        if (!isMessageFromMetaAd(msg, text)) {
-          return; // Ignore personal/friends/family chats
+        if (!isCustomerInquiry(msg, text)) {
+          return; // Ignore completely unrelated casual personal messages
         }
         console.log(`[🎯 NEW AD LEAD from ${remoteJid}]: ${text}`);
         confirmedAdLeads.add(remoteJid);
@@ -259,10 +275,8 @@ async function connectToWhatsApp() {
       const lower = text.toLowerCase().trim();
 
       // =============================================================
-      // SPECIFIC SALES QUESTIONS & OBJECTION ANSWERS
-      // =============================================================
-
       // 1. Domain Name Questions (.com / .in / cost / ownership)
+      // =============================================================
       if (
         lower.includes('domain') ||
         lower.includes('.com') ||
@@ -286,7 +300,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 2. What's Included / Package Details / Pages
+      // =============================================================
       if (
         lower.includes('include') ||
         lower.includes('features') ||
@@ -312,7 +328,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 3. E-commerce / Online Selling / Product Catalog
+      // =============================================================
       if (
         lower.includes('sell') ||
         lower.includes('product') ||
@@ -340,7 +358,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 4. Renewal / Next Year Charges / Future Costs
+      // =============================================================
       if (
         lower.includes('renewal') ||
         lower.includes('renew') ||
@@ -367,7 +387,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 5. No Logo / No Photos / Content Support
+      // =============================================================
       if (
         lower.includes('no logo') ||
         lower.includes('logo nahi') ||
@@ -393,7 +415,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 6. Delivery Time / "Kitne din lagenge?"
+      // =============================================================
       if (
         lower.includes('time') ||
         lower.includes('days') ||
@@ -420,7 +444,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 7. Call Request / Phone Number / "Call me"
+      // =============================================================
       if (
         lower.includes('call') ||
         lower.includes('phone') ||
@@ -445,7 +471,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 8. Office Location / "Where are you from?"
+      // =============================================================
       if (
         lower.includes('office') ||
         lower.includes('location') ||
@@ -470,7 +498,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 9. "I will tell you later" / "Kal batata hu" / Hesitation
+      // =============================================================
       if (
         lower.includes('later') ||
         lower.includes('baad') ||
@@ -496,7 +526,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 10. Samples / Works / Portfolio
+      // =============================================================
       if (
         lower.includes('work') ||
         lower.includes('sample') ||
@@ -521,7 +553,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 11. "What's the catch?" / Trust / Fake / Hidden
+      // =============================================================
       if (
         lower.includes('catch') ||
         lower.includes('fake') ||
@@ -548,7 +582,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 12. Price / Cost / Rate
+      // =============================================================
       if (
         lower.includes('price') ||
         lower.includes('cost') ||
@@ -573,7 +609,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 13. Ready / Start / Yes / Send UPI
+      // =============================================================
       if (
         lower.includes('yes') ||
         lower.includes('upi') ||
@@ -606,11 +644,9 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // STAGE FLOWS
-      // =============================================================
-
       // 14. First message / Brand new ad lead (Stage NEW)
-      if (session.stage === 'NEW') {
+      // =============================================================
+      if (session.stage === 'NEW' || session.messagesCount <= 1) {
         session.stage = 'QUALIFYING';
         if (isHindi) {
           await humanReply(
@@ -634,7 +670,9 @@ async function connectToWhatsApp() {
         return;
       }
 
+      // =============================================================
       // 15. Shared business details (Stage QUALIFYING -> QUALIFIED)
+      // =============================================================
       if (session.stage === 'QUALIFYING') {
         session.stage = 'QUALIFIED';
         if (isHindi) {
@@ -653,12 +691,14 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // 16. Continuing Conversation / Follow-up Questions (Intelligent Consultative Follow-up)
+      // =============================================================
+      // 16. Any Other Question (Never stay silent!)
+      // =============================================================
       if (isHindi) {
         await humanReply(
           sock,
           remoteJid,
-          `Bohot achha sawaal hai sir! Haan, hum aapki website me saari zaroori cheezein set karke denge taki aapke customers WhatsApp par easily order ya inquiry bhej sakein.\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye, ya agar koi aur sawaal hai to zaroor poochiye! 👍`
+          `Bohot achha sawaal hai sir! Haan, hum aapki website me ye saari zaroori cheezein set karke denge taki aapke customers WhatsApp par easily order ya inquiry bhej sakein.\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye, ya agar koi aur sawaal hai to zaroor poochiye! 👍`
         );
       } else {
         await humanReply(
