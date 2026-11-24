@@ -16,18 +16,18 @@ let isConnected = false;
 app.get('/', (req, res) => {
   res.send(`
     <html>
-      <head><title>Pixelvaan WhatsApp Sales AI</title></head>
+      <head><title>Pixelvaan 30-Year Sales AI</title></head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f8f9fa;">
         <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-          <h2 style="color: #128C7E;">Pixelvaan Bilingual Sales AI</h2>
+          <h2 style="color: #128C7E;">Pixelvaan Master Sales AI</h2>
           <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & QUALIFYING LEADS 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
           <div style="background: #E8F5E9; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; color: #2E7D32;">
-            <strong>🎯 Language Mirroring Active:</strong>
+            <strong>🎯 Intelligent Indian Sales Engine Active:</strong>
             <ul style="margin: 8px 0 0 20px; padding: 0;">
-              <li>English input -> Responds in simple, polite, professional English.</li>
-              <li>Hindi/Hinglish input -> Responds in natural, respectful Hinglish.</li>
-              <li>Kannada input -> Responds in simple Kannada / English.</li>
-              <li>Zero corporate jargon. Pure 30-year salesman consultative closing.</li>
+              <li><strong>Language Mirroring:</strong> English questions get English answers; Hindi gets Hindi.</li>
+              <li><strong>Full Question Answering:</strong> Answers domain, pages, e-commerce, renewal, logo, editing, and timing questions.</li>
+              <li><strong>Lead Qualification:</strong> Smoothly guides every conversation toward ₹5,999 booking.</li>
+              <li><strong>Strict Ad-Only:</strong> Completely ignores personal chats, friends, and family.</li>
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
@@ -99,58 +99,46 @@ function getSession(jid) {
     userSessions.set(jid, {
       stage: 'NEW',
       lastInteraction: Date.now(),
-      lang: 'ENGLISH' // default
+      lang: 'ENGLISH',
+      messagesCount: 0
     });
   }
   return userSessions.get(jid);
 }
 
-// Language Detection Function
+// Intelligent Language Detection
 function detectLanguage(text, existingLang = 'ENGLISH') {
-  // 1. Check Devanagari script
-  if (/[ऀ-ॿ]/.test(text)) {
-    return 'HINDI';
-  }
-
-  // 2. Check Kannada script
-  if (/[ಀ-೿]/.test(text)) {
-    return 'KANNADA';
-  }
+  if (/[ऀ-ॿ]/.test(text)) return 'HINDI';
+  if (/[ಀ-೿]/.test(text)) return 'KANNADA';
 
   const lower = text.toLowerCase().trim();
-
-  // 3. Common Hindi / Hinglish keywords
   const hindiWords = [
     'kya', 'hai', 'hain', 'kaise', 'kitna', 'kuch', 'dikhao', 'kaam', 'baad',
     'badme', 'kal', 'bhejo', 'batao', 'batata', 'batate', 'chahiye', 'karna',
     'karo', 'paisa', 'paise', 'nahi', 'theek', 'shuru', 'mujhe', 'hum', 'sirji',
-    'bhai', 'ha', 'haan', 'acha', 'achha', 'soch'
+    'bhai', 'ha', 'haan', 'acha', 'achha', 'soch', 'bataiye', 'banega', 'hoga'
   ];
 
   const words = lower.split(/[^a-zA-Z0-9]+/);
-  const isHindi = words.some(w => hindiWords.includes(w));
+  const hindiMatches = words.filter(w => hindiWords.includes(w)).length;
 
-  if (isHindi) {
-    return 'HINDI';
-  }
+  if (hindiMatches >= 1) return 'HINDI';
 
-  // If words are purely English or standard greeting
   const englishWords = [
     'hi', 'hello', 'hey', 'price', 'cost', 'website', 'sample', 'work', 'works',
     'demo', 'portfolio', 'project', 'later', 'catch', 'fake', 'real', 'yes',
-    'send', 'upi', 'pay', 'start', 'ok', 'okay', 'business', 'shop', 'clinic', 'brand'
+    'send', 'upi', 'pay', 'start', 'ok', 'okay', 'business', 'shop', 'clinic',
+    'brand', 'what', 'how', 'when', 'who', 'where', 'domain', 'pages', 'call'
   ];
 
-  const isEnglish = words.some(w => englishWords.includes(w));
-  if (isEnglish) {
-    return 'ENGLISH';
-  }
+  const englishMatches = words.filter(w => englishWords.includes(w)).length;
+  if (englishMatches >= 1) return 'ENGLISH';
 
   return existingLang || 'ENGLISH';
 }
 
 // Helper to simulate natural human typing delay
-async function humanReply(sock, remoteJid, text, delayMs = 2000) {
+async function humanReply(sock, remoteJid, text, delayMs = 1800) {
   try {
     await sock.sendPresenceUpdate('composing', remoteJid);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -179,7 +167,7 @@ function isMessageFromMetaAd(msg, text) {
     'can you tell me more about your ad',
     'is anyone available to chat',
     '5999', '₹5,999', 'pixelvaan', 'what\'s the catch', 'website package',
-    'website chahiye', 'website banana hai', 'website offer', 'sample'
+    'website chahiye', 'website banana hai', 'website offer', 'sample', 'details'
   ];
 
   if (adIcebreakers.some(trigger => lower.includes(trigger.toLowerCase()))) {
@@ -216,7 +204,7 @@ async function connectToWhatsApp() {
     } else if (connection === 'open') {
       isConnected = true;
       currentQR = null;
-      console.log('🚀 Pixelvaan Bilingual Sales AI is LIVE & CONNECTED!');
+      console.log('🚀 Pixelvaan Master Sales AI is LIVE & CONNECTED!');
     }
   });
 
@@ -261,23 +249,233 @@ async function connectToWhatsApp() {
 
       const session = getSession(remoteJid);
       session.lastInteraction = Date.now();
+      session.messagesCount += 1;
 
-      // Update language for this session
+      // Detect language
       session.lang = detectLanguage(text, session.lang);
       const isHindi = session.lang === 'HINDI';
       const isKannada = session.lang === 'KANNADA';
 
       const lower = text.toLowerCase().trim();
 
-      // -------------------------------------------------------------
-      // 1. "I will tell you later" / "Kal batata hu" / Hesitation
-      // -------------------------------------------------------------
+      // =============================================================
+      // SPECIFIC SALES QUESTIONS & OBJECTION ANSWERS
+      // =============================================================
+
+      // 1. Domain Name Questions (.com / .in / cost / ownership)
+      if (
+        lower.includes('domain') ||
+        lower.includes('.com') ||
+        lower.includes('.in') ||
+        lower.includes('url') ||
+        lower.includes('website name')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Domain (.com ya .in) lagbhag ₹600 se ₹800 ka aata hai sir. Hum aapko GoDaddy ya Hostinger se direct aapke naam par lena suggest karte hain taki aap website ke 100% legal owner rahein.\n\nServer hosting aur domain ka saara technical connection hum free me karke dete hain! 👍\n\nKya aapne koi domain name socha hai apne business ke liye?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `A domain (.com or .in) usually costs around ₹600 to ₹800, sir. We guide you to purchase it directly in your own name on GoDaddy or Hostinger so you remain 100% the legal owner of your website.\n\nWe do all the cloud server configuration and domain connection for you at no extra charge! 👍\n\nDo you already have a domain name in mind for your business?`
+          );
+        }
+        return;
+      }
+
+      // 2. What's Included / Package Details / Pages
+      if (
+        lower.includes('include') ||
+        lower.includes('features') ||
+        lower.includes('kya milega') ||
+        lower.includes('what will i get') ||
+        lower.includes('how many page') ||
+        lower.includes('kitne page') ||
+        lower.includes('package')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `₹5,999 me aapko complete professional package milta hai sir:\n\n✅ 5-Page Fast Business Website (Home, About, Services/Products, Gallery, Contact)\n✅ 1 Saal ki Free Fast Cloud Hosting\n✅ Free SSL Security Certificate (Green Lock)\n✅ Direct WhatsApp Call aur Chat Button\n✅ Google Maps Location Setup\n✅ Mobile, Tablet aur Computer me Fast Loading\n✅ 48 Hours me Live Delivery\n\nAapka business kis cheez ka hai sir?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `In ₹5,999, you get the complete business package, sir:\n\n✅ Complete 5-Page Website (Home, About Us, Services/Products, Gallery, Contact Us)\n✅ 1 Full Year of Free Fast Cloud Hosting\n✅ Free SSL Security Certificate (Green Lock)\n✅ Direct WhatsApp Call & Chat Button\n✅ Google Maps Location Integration\n✅ Super Fast Loading on Mobile & PC\n✅ Live in 48 Hours\n\nWhat kind of business do you run, sir?`
+          );
+        }
+        return;
+      }
+
+      // 3. E-commerce / Online Selling / Product Catalog
+      if (
+        lower.includes('sell') ||
+        lower.includes('product') ||
+        lower.includes('products') ||
+        lower.includes('ecommerce') ||
+        lower.includes('e-commerce') ||
+        lower.includes('cart') ||
+        lower.includes('payment gateway') ||
+        lower.includes('bhechna') ||
+        lower.includes('online payment')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Haan bilkul sir! Hum aapke products ko photo, details aur price ke saath website par add karenge. Har product ke niche direct "Order on WhatsApp" button rahega.\n\nJaise hi customer click karega, uska order seedha aapke WhatsApp par aa jayega jahan aap payment le sakte hain! 👍\n\nAapke paas lagbhag kitne products hain list karne ke liye?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Yes, absolutely, sir! We showcase your products with photos, descriptions, and prices. Each product includes a direct "Order on WhatsApp" button.\n\nWhen a customer clicks, their order details come straight to your WhatsApp so you can collect payment and confirm the order immediately! 👍\n\nRoughly how many products do you have to list on the website?`
+          );
+        }
+        return;
+      }
+
+      // 4. Renewal / Next Year Charges / Future Costs
+      if (
+        lower.includes('renewal') ||
+        lower.includes('renew') ||
+        lower.includes('next year') ||
+        lower.includes('after 1 year') ||
+        lower.includes('saal baad') ||
+        lower.includes('agle saal') ||
+        lower.includes('yearly') ||
+        lower.includes('har saal')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Pehle saal cloud hosting aur SSL security 100% FREE hai sir. Agle saal se basic cloud hosting renewal poore saal ka sirf ₹1,500 se ₹2,000 ke beech aata hai.\n\nKoi monthly maintenance fee nahi hai, aur koi hidden charges nahi hain. Sahi hai na sir?\n\nAapka business kis naam se hai?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `The first full year of cloud hosting and SSL security is 100% FREE, sir. From the second year onwards, basic cloud hosting renewal is only around ₹1,500 to ₹2,000 for the entire year.\n\nThere are zero monthly fees and zero hidden maintenance charges! Sound fair?\n\nWhat is your business name?`
+          );
+        }
+        return;
+      }
+
+      // 5. No Logo / No Photos / Content Support
+      if (
+        lower.includes('no logo') ||
+        lower.includes('logo nahi') ||
+        lower.includes('photo nahi') ||
+        lower.includes('no photo') ||
+        lower.includes('images') ||
+        lower.includes('content') ||
+        lower.includes('write')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Aap bilkul chinta mat kijiye sir! Agar aapke paas logo nahi hai to hum aapke business ke liye ek clean aur sundar logo design karke denge. Aur agar photos nahi hain, to hum aapke business ke hisaab se premium licensed images laga denge bina kisi extra charge ke! 😊\n\nAapka business kis cheez ka hai?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Don't worry at all, sir! If you don't have a logo, we will create a clean, professional logo for your brand. And if you don't have professional photos, we provide high-quality licensed stock images matching your business at no extra charge! 😊\n\nWhat type of business do you run?`
+          );
+        }
+        return;
+      }
+
+      // 6. Delivery Time / "Kitne din lagenge?"
+      if (
+        lower.includes('time') ||
+        lower.includes('days') ||
+        lower.includes('kitne din') ||
+        lower.includes('kab milega') ||
+        lower.includes('duration') ||
+        lower.includes('hours') ||
+        lower.includes('ghante') ||
+        lower.includes('speed')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Jaise hi aap basic details WhatsApp pe share karenge, theek 48 hours ke andar aapki live website review ke liye ready ho jayegi sir! Badi agencies ki tarah hafton wait nahi karwate. 👍\n\nKya main aapka slot check karoon sir?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `As soon as you share your basic details on WhatsApp, your first working draft will be live in just 48 hours, sir! We don't make you wait weeks like traditional agencies. 👍\n\nShall I check slot availability for your business today?`
+          );
+        }
+        return;
+      }
+
+      // 7. Call Request / Phone Number / "Call me"
+      if (
+        lower.includes('call') ||
+        lower.includes('phone') ||
+        lower.includes('number') ||
+        lower.includes('baat') ||
+        lower.includes('contact number') ||
+        lower.includes('voice')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Haan bilkul sir! Hamare senior website consultant aapse call par baat kar lenge. Bas apna business ka naam aur calling number yahan drop kar dijiye, hum 5 minute me aapse connect karte hain! 📞`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Yes, absolutely, sir! Our senior website consultant can give you a quick call. Please share:\n1. Your Business Name\n2. Your best calling number\n\nWe will connect with you directly within a few minutes! 📞`
+          );
+        }
+        return;
+      }
+
+      // 8. Office Location / "Where are you from?"
+      if (
+        lower.includes('office') ||
+        lower.includes('location') ||
+        lower.includes('kahan se') ||
+        lower.includes('where are you') ||
+        lower.includes('city') ||
+        lower.includes('address')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Hum Pixelvaan digital agency hain aur poore India me businesses ke liye websites banate hain. Design se lekar delivery tak sab kuch online WhatsApp par aasan tarike se ho jata hai, bina kisi office ke chakkar kaate, aur 48 hours me site live ho jaati hai! Aapka business kaun se city me hai sir?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `We are Pixelvaan, an Indian digital agency serving businesses across India. Everything from design to live preview and payment is handled smoothly online over WhatsApp so you save time and get your website in 48 hours without visiting an office! What city is your business located in, sir?`
+          );
+        }
+        return;
+      }
+
+      // 9. "I will tell you later" / "Kal batata hu" / Hesitation
       if (
         lower.includes('later') ||
         lower.includes('baad') ||
         lower.includes('badme') ||
         lower.includes('kal') ||
-        lower.includes('after') ||
         lower.includes('busy') ||
         lower.includes('soch') ||
         lower.includes('not now')
@@ -298,20 +496,14 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 2. Samples / Works / Portfolio / "Kaam dikhao"
-      // -------------------------------------------------------------
+      // 10. Samples / Works / Portfolio
       if (
         lower.includes('work') ||
         lower.includes('sample') ||
         lower.includes('demo') ||
         lower.includes('portfolio') ||
-        lower.includes('project') ||
-        lower.includes('example') ||
-        lower.includes('design') ||
         lower.includes('kaam') ||
-        lower.includes('dikhao') ||
-        lower.includes('link')
+        lower.includes('dikhao')
       ) {
         if (isHindi) {
           await humanReply(
@@ -329,9 +521,7 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 3. "What's the catch?" / Hidden charges / Real / Fake
-      // -------------------------------------------------------------
+      // 11. "What's the catch?" / Trust / Fake / Hidden
       if (
         lower.includes('catch') ||
         lower.includes('fake') ||
@@ -340,7 +530,6 @@ async function connectToWhatsApp() {
         lower.includes('trust') ||
         lower.includes('fraud') ||
         lower.includes('scam') ||
-        lower.includes('sach') ||
         lower.includes('cheap')
       ) {
         if (isHindi) {
@@ -359,17 +548,14 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 4. Pricing / Cost / "Kitna lagega?"
-      // -------------------------------------------------------------
+      // 12. Price / Cost / Rate
       if (
         lower.includes('price') ||
         lower.includes('cost') ||
         lower.includes('charge') ||
         lower.includes('kitna') ||
         lower.includes('discount') ||
-        lower.includes('rate') ||
-        lower.includes('paisa')
+        lower.includes('rate')
       ) {
         if (isHindi) {
           await humanReply(
@@ -387,9 +573,7 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 5. Payment / Ready / "Yes" / "UPI bhejo" / "Send UPI"
-      // -------------------------------------------------------------
+      // 13. Ready / Start / Yes / Send UPI
       if (
         lower.includes('yes') ||
         lower.includes('upi') ||
@@ -421,9 +605,11 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 6. First touch / Brand new lead from ad (Stage NEW)
-      // -------------------------------------------------------------
+      // =============================================================
+      // STAGE FLOWS
+      // =============================================================
+
+      // 14. First message / Brand new ad lead (Stage NEW)
       if (session.stage === 'NEW') {
         session.stage = 'QUALIFYING';
         if (isHindi) {
@@ -448,9 +634,7 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 7. Lead replied with business details (Stage QUALIFYING -> QUALIFIED)
-      // -------------------------------------------------------------
+      // 15. Shared business details (Stage QUALIFYING -> QUALIFIED)
       if (session.stage === 'QUALIFYING') {
         session.stage = 'QUALIFIED';
         if (isHindi) {
@@ -469,40 +653,18 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // -------------------------------------------------------------
-      // 8. Lead already qualified and continuing conversation
-      // -------------------------------------------------------------
-      if (session.stage === 'QUALIFIED') {
-        if (isHindi) {
-          await humanReply(
-            sock,
-            remoteJid,
-            `Theek hai sir! Hamare senior website designer aapka message dekh rahe hain aur abhi aapse directly baat karenge. 👍\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye!`
-          );
-        } else {
-          await humanReply(
-            sock,
-            remoteJid,
-            `Understood, sir! Our lead website designer is reviewing your message right now and will personally reply here in just a moment. 👍\n\nIf you want to secure your 48-hour priority delivery slot, just reply "Yes, send UPI" and we will send the onboarding details!`
-          );
-        }
-        return;
-      }
-
-      // -------------------------------------------------------------
-      // 9. Default friendly response
-      // -------------------------------------------------------------
+      // 16. Continuing Conversation / Follow-up Questions (Intelligent Consultative Follow-up)
       if (isHindi) {
         await humanReply(
           sock,
           remoteJid,
-          `Thank you sir! Hamari team aapka message dekh rahi hai aur abhi aapse directly connect karegi.`
+          `Bohot achha sawaal hai sir! Haan, hum aapki website me saari zaroori cheezein set karke denge taki aapke customers WhatsApp par easily order ya inquiry bhej sakein.\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye, ya agar koi aur sawaal hai to zaroor poochiye! 👍`
         );
       } else {
         await humanReply(
           sock,
           remoteJid,
-          `Thank you, sir! Our team lead is reviewing your message right now and will follow up with you directly here in a moment.`
+          `That's a great question, sir! Yes, we handle all technical setup so your website runs fast and allows customers to easily contact or order directly on WhatsApp.\n\nIf you would like to secure your 48-hour priority delivery slot, just reply "Yes, send UPI", or feel free to ask any other questions! 👍`
         );
       }
 
