@@ -56,7 +56,7 @@ app.listen(PORT, () => {
   console.log(`Web server running on port ${PORT}`);
 });
 
-// Persistent storage for contacts to ignore
+// Persistent storage for contacts to ignore (friends, family, past chats, manual chats)
 const IGNORED_FILE = path.join(__dirname, 'ignored_contacts.json');
 let ignoredChats = new Set();
 
@@ -86,6 +86,7 @@ function getSession(jid) {
     userSessions.set(jid, {
       stage: 'NEW',
       businessName: '',
+      isAdLead: false,
       lastInteraction: Date.now()
     });
   }
@@ -99,6 +100,21 @@ const KNOWLEDGE = {
   payment: "50% advance (₹2,999) to initiate domain/hosting setup, 50% on project delivery and final approval.",
   samples: "https://pixelvaan-preview-2x19ifm3v-nidhunm1-3257.vercel.app/ and https://nirmithibuilders.com/"
 };
+
+// 🎯 STRICT AD-INTENT KEYWORDS:
+// The bot will ONLY trigger if the message contains one of these keywords or phrases.
+// Friends asking "bro where are you", "call me", "hey", etc. will be 100% IGNORED!
+const AD_KEYWORDS = [
+  'website', 'web site', 'web', '5999', '5,999', 'pixelvaan', 'hosting', 'domain',
+  'portfolio', 'sample', 'demo', 'package', 'price', 'catch', 'quote', 'development',
+  'vyaapara', 'jaahiraatu', 'vyapaar', 'online', 'webpage', 'ecommerce', 'e-commerce',
+  'ನಿಮ್ಮ', 'ವ್ಯಾಪಾರ', 'ಜಾಹೀರಾತು' // Meta ad icebreaker triggers
+];
+
+function hasAdIntent(text) {
+  const lower = text.toLowerCase();
+  return AD_KEYWORDS.some(kw => lower.includes(kw));
+}
 
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
@@ -115,12 +131,6 @@ async function connectToWhatsApp() {
     if (qr) {
       currentQR = qr;
       isConnected = false;
-      console.log('\n======================================================');
-      console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP BUSINESS APP:');
-      console.log('1. Open WhatsApp Business on your phone');
-      console.log('2. Tap Settings (or 3 dots) -> Linked Devices -> Link a Device');
-      console.log('3. Point your camera at this terminal screen or visit /qr');
-      console.log('======================================================\n');
       qrcodeTerminal.generate(qr, { small: true });
     }
 
@@ -135,40 +145,46 @@ async function connectToWhatsApp() {
       isConnected = true;
       currentQR = null;
       console.log('\n🚀 Pixelvaan AI WhatsApp Bot is CONNECTED and LIVE!');
-      console.log(`🛡️ Existing contacts protected: ${ignoredChats.size} chats will NEVER receive automated messages.`);
-      console.log('Watching for NEW ad leads only...\n');
+      console.log(`🛡️ Friends & Existing Contacts Protected: ${ignoredChats.size} chats completely ignored.`);
+      console.log('🎯 Smart Keyword Filter Active: Only responds to Website Ad inquiries.\n');
     }
   });
 
   sock.ev.on('creds.update', saveCreds);
 
-  sock.ev.on('messaging-history.set', ({ chats }) => {
-    if (chats) {
-      let count = 0;
-      for (const c of chats) {
-        if (c.id && !c.id.endsWith('@g.us') && !ignoredChats.has(c.id)) {
-          ignoredChats.add(c.id);
-          count++;
-        }
-      }
-      if (count > 0) {
-        saveIgnoredChats();
+  // Auto-record all existing contacts & chats so the bot NEVER messages them
+  sock.ev.on('contacts.upsert', (contacts) => {
+    let count = 0;
+    for (const c of contacts) {
+      if (c.id && !c.id.endsWith('@g.us') && !ignoredChats.has(c.id)) {
+        ignoredChats.add(c.id);
+        count++;
       }
     }
+    if (count > 0) saveIgnoredChats();
   });
 
-  sock.ev.on('chats.set', ({ chats }) => {
+  sock.ev.on('messaging-history.set', ({ chats, contacts }) => {
+    let count = 0;
     if (chats) {
-      let count = 0;
       for (const c of chats) {
         if (c.id && !c.id.endsWith('@g.us') && !ignoredChats.has(c.id)) {
           ignoredChats.add(c.id);
           count++;
         }
       }
-      if (count > 0) {
-        saveIgnoredChats();
+    }
+    if (contacts) {
+      for (const c of contacts) {
+        if (c.id && !c.id.endsWith('@g.us') && !ignoredChats.has(c.id)) {
+          ignoredChats.add(c.id);
+          count++;
+        }
       }
+    }
+    if (count > 0) {
+      console.log(`[Safety Sync] Added ${count} contacts/chats to ignore list.`);
+      saveIgnoredChats();
     }
   });
 
@@ -178,21 +194,21 @@ async function connectToWhatsApp() {
       if (!msg.message) return;
 
       const remoteJid = msg.key.remoteJid;
-      if (!remoteJid || remoteJid.endsWith('@g.us')) return;
+      if (!remoteJid || remoteJid.endsWith('@g.us')) return; // Ignore groups
 
-      // Safeguard 1: If you send a message, mute bot for this person
+      // 🛡️ SAFEGUARD 1: If YOU send a message from your phone, mute bot forever for this person
       if (msg.key.fromMe) {
         if (!ignoredChats.has(remoteJid)) {
-          console.log(`[Manual Chat Detected] You chatted with ${remoteJid}. Bot will NEVER auto-reply to this person.`);
+          console.log(`[Manual Chat] You messaged ${remoteJid}. Bot will NEVER auto-reply to this person.`);
           ignoredChats.add(remoteJid);
           saveIgnoredChats();
         }
         return;
       }
 
-      // Safeguard 2: Existing contacts ignored
+      // 🛡️ SAFEGUARD 2: If this person is a friend / saved contact / previous chat -> 100% IGNORE!
       if (ignoredChats.has(remoteJid)) {
-        return;
+        return; // Silent ignore, no automated message to friends!
       }
 
       const text = msg.message.conversation ||
@@ -202,12 +218,22 @@ async function connectToWhatsApp() {
 
       if (!text.trim()) return;
 
-      console.log(`[NEW AD LEAD from ${remoteJid}]: ${text}`);
-
       const session = getSession(remoteJid);
       session.lastInteraction = Date.now();
-
       const lowerText = text.toLowerCase();
+
+      // 🛡️ SAFEGUARD 3: KEYWORD FILTER FOR FIRST-TIME MESSAGES
+      // If a brand-new number texts you "Bhai kya kar raha hai" or "Call me" or "Hi",
+      // the bot will NOT reply unless it detects ad intent / website inquiry!
+      if (!session.isAdLead) {
+        if (!hasAdIntent(text)) {
+          console.log(`[Ignored Non-Ad Message from ${remoteJid}]: "${text}" (No website intent)`);
+          return; // Stay silent!
+        }
+        session.isAdLead = true; // Confirmed ad lead!
+      }
+
+      console.log(`[AD LEAD from ${remoteJid}]: ${text}`);
 
       // Handle Sample/Demo requests
       if (lowerText.includes('sample') || lowerText.includes('demo') || lowerText.includes('portfolio') || lowerText.includes('example') || lowerText.includes('link')) {
@@ -259,7 +285,7 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // Default supportive response
+      // Default supportive response for active ad lead
       await sock.sendMessage(remoteJid, {
         text: `Thank you for your message! Our team lead at Pixelvaan will respond to you shortly.\n\nIn the meantime, feel free to check our live preview:\n👉 ${KNOWLEDGE.samples}`
       });
