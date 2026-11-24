@@ -207,10 +207,22 @@ async function connectToWhatsApp() {
       session.lastInteraction = Date.now();
       const lowerText = text.toLowerCase();
 
-      // Handle Sample/Demo requests (OPTION 1: Custom Mockup Offer)
-      if (lowerText.includes('sample') || lowerText.includes('demo') || lowerText.includes('portfolio') || lowerText.includes('example') || lowerText.includes('link')) {
+      // Handle "Show works / Samples / Portfolio / Previous projects"
+      if (
+        lowerText.includes('work') ||
+        lowerText.includes('works') ||
+        lowerText.includes('sample') ||
+        lowerText.includes('samples') ||
+        lowerText.includes('demo') ||
+        lowerText.includes('portfolio') ||
+        lowerText.includes('project') ||
+        lowerText.includes('projects') ||
+        lowerText.includes('example') ||
+        lowerText.includes('previous') ||
+        lowerText.includes('kaam')
+      ) {
         await sock.sendMessage(remoteJid, {
-          text: `We do not use generic, pre-made templates — every Pixelvaan website is custom-designed specifically for your brand and industry.\n\nPlease share:\n1. Your Business or Brand Name:\n2. What type of business is it? (Retail Shop / Clinic / Service / Brand)\n\nOnce you share these details, we will prepare a customized mockup layout tailored directly for your business!`
+          text: `We design custom websites tailored specifically to each client's business — we do not use pre-made generic templates.\n\nTo share the most relevant design layout and features for your business:\n\n1. What is your Business or Brand Name?\n2. What type of business do you run? (Retail Store / Clinic / Service / Brand / Consulting)\n\nOnce you share this, our team will prepare a custom layout concept designed specifically for your industry!`
         });
         return;
       }
