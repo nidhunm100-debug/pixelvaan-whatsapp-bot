@@ -90,13 +90,6 @@ function getSession(jid) {
   return userSessions.get(jid);
 }
 
-// Pixelvaan Knowledge Base
-const KNOWLEDGE = {
-  offer: "₹5,999 all-inclusive (Full Business Website + 1 Year Free Cloud Hosting + SSL Certificate + Mobile Responsive + WhatsApp Button).",
-  timeline: "48-Hour delivery once content/logo is received.",
-  payment: "50% advance (₹2,999) to initiate domain/hosting setup, 50% on project delivery and final approval."
-};
-
 // Exact Meta Ad Detection Function
 function isMessageFromMetaAd(msg, text) {
   const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
@@ -162,7 +155,7 @@ async function connectToWhatsApp() {
       currentQR = null;
       console.log('\n🚀 Pixelvaan AI WhatsApp Bot is CONNECTED and LIVE!');
       console.log('🎯 STRICT AD-ONLY MODE ACTIVE: Zero automated messages to friends/family.');
-      console.log('🎨 CUSTOM MOCKUP STRATEGY ACTIVE: No generic templates sent.\n');
+      console.log('🤝 PERSONAL PORTFOLIO HANDOFF: Bot prompts for business info and lets you share links manually.\n');
     }
   });
 
@@ -207,7 +200,7 @@ async function connectToWhatsApp() {
       session.lastInteraction = Date.now();
       const lowerText = text.toLowerCase();
 
-      // Handle "Show works / Samples / Portfolio / Previous projects"
+      // Handle "Show works / Samples / Portfolio / Previous projects / Designs"
       if (
         lowerText.includes('work') ||
         lowerText.includes('works') ||
@@ -219,10 +212,12 @@ async function connectToWhatsApp() {
         lowerText.includes('projects') ||
         lowerText.includes('example') ||
         lowerText.includes('previous') ||
+        lowerText.includes('design') ||
+        lowerText.includes('designs') ||
         lowerText.includes('kaam')
       ) {
         await sock.sendMessage(remoteJid, {
-          text: `We design custom websites tailored specifically to each client's business — we do not use pre-made generic templates.\n\nTo share the most relevant design layout and features for your business:\n\n1. What is your Business or Brand Name?\n2. What type of business do you run? (Retail Store / Clinic / Service / Brand / Consulting)\n\nOnce you share this, our team will prepare a custom layout concept designed specifically for your industry!`
+          text: `Sure! Our lead designer is reviewing your inquiry right now and will share relevant live website links directly with you here in a moment. 👍\n\nMeanwhile, please share:\n1. Your Business or Brand Name:\n2. What type of business is it? (Retail Shop / Clinic / Service / Brand)\n\nThis helps us send the exact design styles that match your business!`
         });
         return;
       }
@@ -271,7 +266,7 @@ async function connectToWhatsApp() {
 
       // Default supportive response for active ad lead
       await sock.sendMessage(remoteJid, {
-        text: `Thank you for reaching out to Pixelvaan! Our design lead will review your details and get back to you shortly.`
+        text: `Thank you for reaching out to Pixelvaan! Our team lead will review your message and reply directly here shortly.`
       });
 
     } catch (err) {
