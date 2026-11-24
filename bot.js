@@ -1,11 +1,62 @@
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
-const qrcode = require('qrcode-terminal');
+const qrcodeTerminal = require('qrcode-terminal');
+const QRCode = require('qrcode');
+const express = require('express');
 const pino = require('pino');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
 
-// Persistent storage for contacts to ignore (existing clients, friends, manual chats)
+// Web server for Render / Cloud deployment
+const app = express();
+const PORT = process.env.PORT || 3000;
+let currentQR = null;
+let isConnected = false;
+
+app.get('/', (req, res) => {
+  res.send(`
+    <html>
+      <head><title>Pixelvaan WhatsApp Bot Status</title></head>
+      <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+        <h2>Pixelvaan AI WhatsApp Bot</h2>
+        <p>Status: <strong>${isConnected ? '🟢 CONNECTED & RUNNING 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
+        ${!isConnected ? '<p><a href="/qr" style="padding: 10px 20px; background: #25D366; color: white; text-decoration: none; border-radius: 5px;">Scan QR Code to Link WhatsApp</a></p>' : '<p>Your bot is actively qualifying ad leads!</p>'}
+      </body>
+    </html>
+  `);
+});
+
+app.get('/qr', async (req, res) => {
+  if (isConnected) {
+    return res.send('<h2>Bot is already connected and running!</h2><p><a href="/">Back to Status</a></p>');
+  }
+  if (!currentQR) {
+    return res.send('<h2>Loading QR code... please refresh in 5 seconds.</h2>');
+  }
+  try {
+    const qrImage = await QRCode.toDataURL(currentQR);
+    res.send(`
+      <html>
+        <head><title>Link Pixelvaan WhatsApp</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 40px;">
+          <h2>Scan with WhatsApp Business</h2>
+          <p>1. Open WhatsApp Business on your phone<br>2. Tap Settings / Menu -> <strong>Linked Devices</strong> -> <strong>Link a Device</strong><br>3. Scan the QR code below:</p>
+          <img src="${qrImage}" style="width: 300px; height: 300px;" />
+          <p><em>QR code refreshes automatically.</em></p>
+          <script>setTimeout(() => location.reload(), 20000);</script>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send('Error generating QR code');
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Web server running on port ${PORT}`);
+});
+
+// Persistent storage for contacts to ignore
 const IGNORED_FILE = path.join(__dirname, 'ignored_contacts.json');
 let ignoredChats = new Set();
 
@@ -62,22 +113,27 @@ async function connectToWhatsApp() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
+      currentQR = qr;
+      isConnected = false;
       console.log('\n======================================================');
       console.log('📱 SCAN THIS QR CODE WITH YOUR WHATSAPP BUSINESS APP:');
       console.log('1. Open WhatsApp Business on your phone');
       console.log('2. Tap Settings (or 3 dots) -> Linked Devices -> Link a Device');
-      console.log('3. Point your camera at this terminal screen:');
+      console.log('3. Point your camera at this terminal screen or visit /qr');
       console.log('======================================================\n');
-      qrcode.generate(qr, { small: true });
+      qrcodeTerminal.generate(qr, { small: true });
     }
 
     if (connection === 'close') {
+      isConnected = false;
       const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
       console.log('Connection closed due to:', lastDisconnect?.error, ', reconnecting:', shouldReconnect);
       if (shouldReconnect) {
         connectToWhatsApp();
       }
     } else if (connection === 'open') {
+      isConnected = true;
+      currentQR = null;
       console.log('\n🚀 Pixelvaan AI WhatsApp Bot is CONNECTED and LIVE!');
       console.log(`🛡️ Existing contacts protected: ${ignoredChats.size} chats will NEVER receive automated messages.`);
       console.log('Watching for NEW ad leads only...\n');
@@ -86,7 +142,6 @@ async function connectToWhatsApp() {
 
   sock.ev.on('creds.update', saveCreds);
 
-  // Auto-record all existing chats on startup so the bot NEVER messages them
   sock.ev.on('messaging-history.set', ({ chats }) => {
     if (chats) {
       let count = 0;
@@ -97,7 +152,6 @@ async function connectToWhatsApp() {
         }
       }
       if (count > 0) {
-        console.log(`[History Sync] Added ${count} existing chats to ignore list.`);
         saveIgnoredChats();
       }
     }
@@ -124,10 +178,9 @@ async function connectToWhatsApp() {
       if (!msg.message) return;
 
       const remoteJid = msg.key.remoteJid;
-      if (!remoteJid || remoteJid.endsWith('@g.us')) return; // Ignore group chats
+      if (!remoteJid || remoteJid.endsWith('@g.us')) return;
 
-      // 🛡️ SAFEGUARD 1: If YOU send a message to someone from your phone,
-      // instantly mute the bot for that person forever!
+      // Safeguard 1: If you send a message, mute bot for this person
       if (msg.key.fromMe) {
         if (!ignoredChats.has(remoteJid)) {
           console.log(`[Manual Chat Detected] You chatted with ${remoteJid}. Bot will NEVER auto-reply to this person.`);
@@ -137,9 +190,8 @@ async function connectToWhatsApp() {
         return;
       }
 
-      // 🛡️ SAFEGUARD 2: If this person is an existing contact or previously chatted, IGNORE COMPLETELY!
+      // Safeguard 2: Existing contacts ignored
       if (ignoredChats.has(remoteJid)) {
-        console.log(`[Skipped] Message from existing contact (${remoteJid}). Bot will not reply.`);
         return;
       }
 
