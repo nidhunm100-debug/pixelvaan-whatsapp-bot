@@ -153,7 +153,10 @@ async function callGeminiAI(remoteJid, userMessage) {
     contents: history,
     generationConfig: {
       temperature: 0.7,
-      maxOutputTokens: 350
+      maxOutputTokens: 1000,
+      thinkingConfig: {
+        thinkingBudget: 0
+      }
     }
   };
 
