@@ -19,15 +19,15 @@ app.get('/', (req, res) => {
       <head><title>Pixelvaan WhatsApp Sales AI</title></head>
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f8f9fa;">
         <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
-          <h2 style="color: #128C7E;">Pixelvaan 30-Year Veteran Sales AI</h2>
+          <h2 style="color: #128C7E;">Pixelvaan Indian Business Sales AI</h2>
           <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & QUALIFYING LEADS 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
           <div style="background: #E8F5E9; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; color: #2E7D32;">
-            <strong>🎯 Sales Veteran Core Active:</strong>
+            <strong>🎯 Natural Indian Tone Active:</strong>
             <ul style="margin: 8px 0 0 20px; padding: 0;">
-              <li>Strict Ad-Only: Zero interference with friends/family/existing chats.</li>
-              <li>Consultative Qualification: Converts "I'll tell you later" into committed slots.</li>
-              <li>Value-Driven Objection Handling: Closes on ₹5,999 (50% advance / 50% on satisfaction).</li>
-              <li>Curated Work Delivery: Validates business type before handing over to human designer.</li>
+              <li>Super simple, respectful words that every Indian business owner easily understands.</li>
+              <li>No tough English or complex jargon.</li>
+              <li>Smooth objection handling for "Later / Kal batata hu" and "What's the catch".</li>
+              <li>Strict Ad-Only: Zero messages to friends or family.</li>
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
@@ -89,7 +89,7 @@ function saveAdLeads() {
 }
 
 // Track human muted users (when business owner chats manually)
-const mutedUsers = new Map(); // jid -> timestamp until muted
+const mutedUsers = new Map();
 
 // User conversation state
 const userSessions = new Map();
@@ -98,16 +98,14 @@ function getSession(jid) {
   if (!userSessions.has(jid)) {
     userSessions.set(jid, {
       stage: 'NEW',
-      lastInteraction: Date.now(),
-      businessName: null,
-      businessType: null
+      lastInteraction: Date.now()
     });
   }
   return userSessions.get(jid);
 }
 
 // Helper to simulate natural human typing delay
-async function humanReply(sock, remoteJid, text, delayMs = 2500) {
+async function humanReply(sock, remoteJid, text, delayMs = 2000) {
   try {
     await sock.sendPresenceUpdate('composing', remoteJid);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -126,13 +124,11 @@ function isMessageFromMetaAd(msg, text) {
 
   // 1. Meta attaches externalAdReply when someone clicks a Click-to-WhatsApp ad
   if (contextInfo?.externalAdReply) {
-    console.log('[Ad Signal] Detected externalAdReply metadata from Meta Ad!');
     return true;
   }
 
   // 2. Meta attaches sourceId / conversionData from CTWA ads
   if (contextInfo?.conversionData || contextInfo?.sourceId) {
-    console.log('[Ad Signal] Detected CTWA conversion metadata!');
     return true;
   }
 
@@ -145,11 +141,11 @@ function isMessageFromMetaAd(msg, text) {
     'can i learn more about your business',
     'can you tell me more about your ad',
     'is anyone available to chat',
-    '5999', '₹5,999', 'pixelvaan', 'what\'s the catch', 'website package'
+    '5999', '₹5,999', 'pixelvaan', 'what\'s the catch', 'website package',
+    'website chahiye', 'website banana hai', 'website offer', 'sample'
   ];
 
   if (adIcebreakers.some(trigger => lower.includes(trigger.toLowerCase()))) {
-    console.log('[Ad Signal] Detected Ad-specific icebreaker/trigger text!');
     return true;
   }
 
@@ -177,16 +173,13 @@ async function connectToWhatsApp() {
     if (connection === 'close') {
       isConnected = false;
       const shouldReconnect = (lastDisconnect?.error)?.output?.statusCode !== DisconnectReason.loggedOut;
-      console.log('Connection closed, reconnecting:', shouldReconnect);
       if (shouldReconnect) {
         connectToWhatsApp();
       }
     } else if (connection === 'open') {
       isConnected = true;
       currentQR = null;
-      console.log('\n🚀 Pixelvaan 30-Year Veteran Sales AI is LIVE!');
-      console.log('🎯 STRICT AD-ONLY MODE: Zero automated messages to friends/family.');
-      console.log('💼 CONSULTATIVE SALES ENGINE: Empathetic, authoritative, closing-oriented.\n');
+      console.log('🚀 Pixelvaan Indian Business Sales AI is LIVE & CONNECTED!');
     }
   });
 
@@ -202,7 +195,6 @@ async function connectToWhatsApp() {
 
       // If business owner manually chats from their phone, mute bot for 24 hours
       if (msg.key.fromMe) {
-        console.log(`[Human Takeover] Owner replied to ${remoteJid}. Muting bot for 24h.`);
         mutedUsers.set(remoteJid, Date.now() + 24 * 60 * 60 * 1000);
         return;
       }
@@ -239,57 +231,51 @@ async function connectToWhatsApp() {
       const lower = text.toLowerCase().trim();
 
       // -------------------------------------------------------------
-      // 1. "I will tell you later" / "Kal batata hoon" / Hesitation Killer
+      // 1. "I will tell you later" / "Kal batata hu" / "Baad me"
       // -------------------------------------------------------------
       if (
         lower.includes('later') ||
         lower.includes('baad') ||
         lower.includes('badme') ||
         lower.includes('kal') ||
-        lower.includes('after some time') ||
-        lower.includes('busy right now') ||
-        lower.includes('thinking') ||
-        lower.includes('not now') ||
-        lower.includes('soch ke')
+        lower.includes('after') ||
+        lower.includes('busy') ||
+        lower.includes('soch') ||
+        lower.includes('not now')
       ) {
         await humanReply(
           sock,
           remoteJid,
-          `Totally understand! Take all the time you need. 👍\n\nJust a quick heads-up from my side: because we build custom websites and guarantee live delivery in 48 hours, our design team only takes on 3 new clients each week so quality never slips.\n\nIf you're planning to get your website up soon, just drop your Business Name or what you sell right here, and I'll hold your ₹5,999 introductory pricing slot until tomorrow evening. Sound fair?`
+          `Koi baat nahi sir, bilkul aaram se soch lijiye! 👍\n\nBas ek chhota sa update: Hamari team ek hafte me sirf 3-4 website hi banati hai taki 48 hours me perfect kaam deliver ho sake.\n\nAgar aapko ₹5,999 wale offer me apna slot book karke rakhna hai, to bas apne business ka naam bata dijiye. Main kal tak aapka rate hold karke rakhunga. Theek hai sir?`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 2. Samples / Works / Portfolio / Demo / Previous Designs
+      // 2. Samples / Works / Portfolio / "Kaam dikhao"
       // -------------------------------------------------------------
       if (
         lower.includes('work') ||
-        lower.includes('works') ||
         lower.includes('sample') ||
-        lower.includes('samples') ||
         lower.includes('demo') ||
         lower.includes('portfolio') ||
         lower.includes('project') ||
-        lower.includes('projects') ||
         lower.includes('example') ||
-        lower.includes('examples') ||
-        lower.includes('previous') ||
         lower.includes('design') ||
-        lower.includes('designs') ||
         lower.includes('kaam') ||
-        lower.includes('kuch dikhao')
+        lower.includes('dikhao') ||
+        lower.includes('link')
       ) {
         await humanReply(
           sock,
           remoteJid,
-          `I would love to show you! We have built dozens of websites for businesses across India. 😊\n\nRather than dumping random templates on you that have nothing to do with what you do, let me ask: what kind of business do you run? (Retail shop, clinic, service, manufacturing, consulting, etc.)\n\nTell me your business type and name, and I will personally pick 2 or 3 live websites in your exact field so you can see real results.`
+          `Haan bilkul sir! Hamne alag-alag business ke liye bohot saari websites banayi hain. 👍\n\nAapko faltu ka template dikhane ke badle, aap bataiye aapka kis cheez ka business hai? (Jaise retail shop, clinic, salon, wholesale, factory, ya service?)\n\nAap bas business ka naam aur type bata dijiye, hamare main designer 2 minute me aapke business ke matching live website links yahan bhej denge.`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 3. "What's the catch?" / Trust / Fake / Real / Hidden charges
+      // 3. "What's the catch?" / "Hidden charge?" / "Is this real or fake?"
       // -------------------------------------------------------------
       if (
         lower.includes('catch') ||
@@ -299,57 +285,59 @@ async function connectToWhatsApp() {
         lower.includes('trust') ||
         lower.includes('fraud') ||
         lower.includes('scam') ||
-        lower.includes('why so cheap') ||
-        lower.includes('how possible')
+        lower.includes('sach') ||
+        lower.includes('cheap')
       ) {
         await humanReply(
           sock,
           remoteJid,
-          `I get asked this every single day, and I genuinely respect the honesty! Here is the straight truth from 30 years in business:\n\nMost agencies charge ₹25,000 to ₹40,000 because they carry huge office overheads and push bloated features that small businesses never need. We don't do that.\n\nFor ₹5,999 flat, you get:\n✅ Complete 5-Page Fast Business Website\n✅ 1 Full Year High-Speed Cloud Hosting\n✅ Free SSL Security Certificate\n✅ Mobile & Tablet Responsive Layout\n✅ Direct WhatsApp Call/Order Button\n\nOur strategy is simple: if we deliver you an incredible website in 48 hours at an unbeatable price, you'll be thrilled and refer your business friends to us. It's a win-win.\n\nWhat business are you looking to build the website for?`
+          `Sir bilkul genuine hai, koi bhi hidden charge nahi hai! 😊\n\nPakka ₹5,999 me hi sab kuch milega:\n✅ Poori 5-Page Business Website\n✅ 1 Saal ki Free Fast Cloud Hosting\n✅ Free SSL Security (Green lock)\n✅ Mobile aur Computer dono pe fast chalegi\n✅ Direct WhatsApp Call/Chat Button\n\nBadi agencies isi cheez ka 20,000 se 30,000 maangti hain. Hum kam daam me isliye de rahe hain taki aapka kaam achha ho aur aap apne doosre businessman doston ko bhi humse connect karein.\n\nAapka business kis cheez ka hai sir?`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 4. Pricing / Cost / How much / Charges / Discount
+      // 4. Pricing / Cost / "Kitna lagega?"
       // -------------------------------------------------------------
       if (
         lower.includes('price') ||
         lower.includes('cost') ||
-        lower.includes('charges') ||
-        lower.includes('how much') ||
+        lower.includes('charge') ||
+        lower.includes('kitna') ||
         lower.includes('discount') ||
         lower.includes('rate') ||
-        lower.includes('kitna')
+        lower.includes('paisa')
       ) {
         await humanReply(
           sock,
           remoteJid,
-          `It is ₹5,999 flat, all-inclusive. Not a single rupee in hidden fees.\n\nThat covers the entire design, setup, 1 full year of cloud hosting, and SSL security. Plus, your first live draft is ready to review in 48 hours.\n\nWhat is your business name and what products or services do you offer? Let me check our onboarding availability for this week.`
+          `Sir total ₹5,999 flat hai, koi extra charge nahi hai.\n\nIsme website design, 1 saal ki cloud hosting, aur SSL security sab included hai. Aur sabse achhi baat: 48 hours me aapka pehla draft live ready ho jayega.\n\nAapke business ka naam kya hai sir?`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 5. Payment / Ready to Start / Send UPI / Yes / OK
+      // 5. Payment / Ready / "Yes" / "UPI bhejo" / "Start karo"
       // -------------------------------------------------------------
       if (
         lower.includes('yes') ||
-        lower.includes('send upi') ||
         lower.includes('upi') ||
         lower.includes('pay') ||
         lower.includes('payment') ||
-        lower.includes('account details') ||
-        lower.includes('start now') ||
-        lower.includes('proceed') ||
-        lower.includes('ok send') ||
-        lower.includes('ha bhejo')
+        lower.includes('bhejo') ||
+        lower.includes('start') ||
+        lower.includes('shuru') ||
+        lower.includes('account') ||
+        lower.includes('send') ||
+        lower.includes('ok') ||
+        lower.includes('theek') ||
+        lower.includes('done')
       ) {
         session.stage = 'PAYMENT_PENDING';
         await humanReply(
           sock,
           remoteJid,
-          `Excellent decision! You're taking a big step for your business credibility.\n\nHere is our simple onboarding process:\n1. 50% advance (₹2,999) to allocate your cloud hosting server and lock in your 48-hour delivery slot.\n2. Send us your logo, photos, and contact info right here on WhatsApp.\n3. We deliver your live draft in 48 hours. The remaining 50% is only payable after you review and approve everything.\n\nOur team lead is preparing your official invoice and UPI payment details right now. They will share it directly here in just a moment!`
+          `Bohot badhiya sir! Bohot achha decision hai aapke business ke liye. 🤝\n\nKaam shuru karne ka process bilkul aasan hai:\n1. 50% advance (₹2,999) se hosting aur server setup start hota hai.\n2. Aap apna photo, logo aur details yahan WhatsApp pe share kar dijiye.\n3. 48 hours me hum aapko live website link bhejenge dekhne ke liye.\nBaqi 50% tabhi dena hai jab aap poori tarah se website dekh kar khush honge!\n\nHamare team lead abhi official UPI details aur basic sheet yahan bhej rahe hain 2 minute me.`
         );
         return;
       }
@@ -362,43 +350,43 @@ async function connectToWhatsApp() {
         await humanReply(
           sock,
           remoteJid,
-          `Hello! Thanks for reaching out. Glad you saw our ad! 👋\n\nWe build clean, high-converting business websites for ₹5,999 all-inclusive (1 year of free cloud hosting + SSL security included, delivered live in 48 hours).\n\nQuick question so I can steer you right: What is the name of your business, and what do you guys do? Just want to see what style fits your brand best.`
+          `Namaste! Pixelvaan me aapka swagat hai. 🙏\n\nHum local businesses ke liye fast aur sundar websites banate hain sirf ₹5,999 me (1 saal free hosting + SSL security ke saath, 48 hours me live).\n\nAapke business ke hisaab se sahi design batane ke liye: Aapke business ka naam kya hai aur aap kis cheez ka kaam karte hain sir?`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 7. Lead replied with details (Stage QUALIFYING -> QUALIFIED)
+      // 7. Lead replied with business details (Stage QUALIFYING -> QUALIFIED)
       // -------------------------------------------------------------
       if (session.stage === 'QUALIFYING') {
         session.stage = 'QUALIFIED';
         await humanReply(
           sock,
           remoteJid,
-          `That sounds like a fantastic business! A clean, modern website with a direct WhatsApp customer button will do wonders for your credibility and customer trust.\n\nYour project qualifies for our ₹5,999 package and our priority 48-hour delivery.\n\nHere is how we get started:\n• 50% advance (₹2,999) to begin domain, hosting setup, and layout design.\n• Send your photos/logo right here.\n• First draft live in 48 hours. Remaining 50% only when you are 100% satisfied.\n\nShall I send our official UPI payment details so we can lock in your slot for this week?`
+          `Bohot badhiya sir! Is type ke business ke liye ek clean website aur direct WhatsApp order button se customers ka trust bohot badh jata hai. 👍\n\nAapka kaam ₹5,999 wale package me 48 hours me deliver ho jayega.\n\nShuru karne ke liye:\n• 50% advance (₹2,999) se domain aur hosting setup start hota hai.\n• Aap photo/logo WhatsApp pe bhejenge.\n• 48 hours me draft live ho jayega. Baqi 50% payment aapke final approval ke baad.\n\nKya main official UPI payment details bhej doon sir slot confirm karne ke liye?`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 8. Lead is already qualified and continuing conversation
+      // 8. Lead already qualified and chatting
       // -------------------------------------------------------------
       if (session.stage === 'QUALIFIED') {
         await humanReply(
           sock,
           remoteJid,
-          `Got it! Our lead website designer is reviewing your message right now and will personally reply here in just a moment.\n\nIf you want to secure your 48-hour priority delivery slot right away, just say "Yes, send UPI" and we will send the onboarding details!`
+          `Theek hai sir! Hamare senior website designer aapka message dekh rahe hain aur abhi aapse directly baat karenge. 👍\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye!`
         );
         return;
       }
 
       // -------------------------------------------------------------
-      // 9. Default supportive consultative response
+      // 9. Default friendly response
       // -------------------------------------------------------------
       await humanReply(
         sock,
         remoteJid,
-        `Thank you for messaging Pixelvaan! Our team lead is reviewing our chat right now and will follow up with you directly here in a moment.`
+        `Thank you sir! Hamari team aapka message dekh rahi hai aur abhi aapse directly connect karegi.`
       );
 
     } catch (err) {
