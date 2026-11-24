@@ -133,9 +133,27 @@ CRITICAL RULES:
 
 4. CRITICAL MESSAGE LENGTH RULE (SHORT & CRISP - MAX 2 TO 3 LINES):
    - Indian customers DO NOT read long messages or paragraphs on WhatsApp!
-   - STRICT LIMIT: 2 to 3 short sentences maximum (strictly under 35 words total).
-   - Directly answer the question in line 1, give essential info in line 2, and ask 1 short closing question in line 3.
-   - NEVER write bulleted essays, long introductions, or explanations. Keep it punchy, respectful, and fast to read on a mobile phone screen.
+   - Keep messages short (2 to 3 sentences maximum).
+   - Directly answer the question in line 1, give essential info in line 2, and add quick reply choices.
+
+5. NUMBERED QUICK CHOICES SYSTEM (ZERO-TYPING FOR LEADS):
+   - Whenever welcoming a lead or finishing an answer, attach 3 easy tap/reply options at the bottom:
+     In English:
+     Reply:
+     1 - Package details
+     2 - Call with founder
+     3 - Book website slot
+
+     In Hindi:
+     Reply kijiye:
+     1 - Package details
+     2 - Founder se call
+     3 - Website slot book karein
+
+   - WHEN A LEAD REPLIES WITH A NUMBER:
+     - If they reply "1" (or "one"): State that ₹5,999 includes 5-page site, 1-year free hosting, SSL, WhatsApp button, free payment gateway, live in 48 hrs. Then ask: "What is your business name?"
+     - If they reply "2" (or "two"): State: "Our founder will personally call you in 5 minutes! Please share your calling number and business name." (In Hindi: "Hamare founder aapko 5 minute me personally call karenge! Kripya apna phone number aur business name share kar dijiye.")
+     - If they reply "3" (or "three"): State: "Great! To reserve your 48-hour slot, ₹2,999 advance is required (remaining ₹2,999 after you approve your live draft). Should I send the UPI payment details?"
 `;
 
 async function callGeminiAI(remoteJid, userMessage) {
@@ -155,8 +173,8 @@ async function callGeminiAI(remoteJid, userMessage) {
     },
     contents: history,
     generationConfig: {
-      temperature: 0.6,
-      maxOutputTokens: 150,
+      temperature: 0.5,
+      maxOutputTokens: 250,
       thinkingConfig: {
         thinkingBudget: 0
       }
@@ -238,6 +256,88 @@ function isCustomerInquiry(msg, text) {
   return false;
 }
 
+// Helper to detect language
+function detectCustomerLanguage(text, existingLang = 'HINDI') {
+  if (/[ऀ-ॿ]/.test(text)) return 'HINDI';
+  if (/[ಀ-೿]/.test(text)) return 'KANNADA';
+  const lower = text.toLowerCase().trim();
+  const hindiWords = ['kya', 'hai', 'hain', 'kaise', 'kitna', 'kuch', 'dikhao', 'kaam', 'baad', 'badme', 'kal', 'bhejo', 'batao', 'chahiye', 'paisa', 'theek', 'shuru', 'bhai', 'sir ji'];
+  const words = lower.split(/[^a-zA-Z0-9]+/);
+  if (words.some(w => hindiWords.includes(w))) return 'HINDI';
+
+  const englishWords = ['website', 'hello', 'hi', 'hey', 'details', 'price', 'cost', 'learn', 'business', 'call', 'samples', 'work', 'package', 'offer', 'interested', 'more'];
+  if (words.some(w => englishWords.includes(w))) return 'ENGLISH';
+
+  return existingLang;
+}
+
+// User language preference tracking
+const userLanguages = new Map();
+
+// Direct fast-path for quick reply choices 1, 2, 3
+function getQuickChoiceReply(choice, lang) {
+  if (choice === '1') {
+    if (lang === 'ENGLISH') {
+      return `Namaste! Here is our ₹5,999 All-Inclusive Package:
+• 5-Page fast mobile-friendly website
+• 1 Year free high-speed cloud hosting & SSL certificate
+• WhatsApp chat button & Google Maps setup
+• Payment gateway & UPI integration included 100% FREE
+• First live working draft in 48 hours!
+
+What is your business name and line of work?`;
+    } else {
+      return `Namaste sir! ₹5,999 All-Inclusive Package:
+• 5-Page fast mobile website
+• 1 Saal free cloud hosting & SSL certificate
+• WhatsApp direct order button & Google Maps setup
+• Payment gateway / UPI setup included 100% FREE
+• 48 ghante mein live working draft!
+
+Aapka kis cheez ka business hai aur kya naam hai sir?`;
+    }
+  }
+
+  if (choice === '2') {
+    if (lang === 'ENGLISH') {
+      return `Our founder will personally call you in 5 minutes!
+
+Please share your best calling number and your business name so he can reach you directly.`;
+    } else {
+      return `Ji bilkul sir! Hamare founder aapko 5 minute me personally call karenge.
+
+Kripya apna calling number aur business name share kar dijiye!`;
+    }
+  }
+
+  if (choice === '3') {
+    if (lang === 'ENGLISH') {
+      return `Great! To allocate your cloud server and reserve your 48-hour delivery slot, ₹2,999 advance deposit is required (remaining ₹2,999 only after you approve your live draft).
+
+Should I share our official UPI payment details for booking?`;
+    } else {
+      return `Shandar sir! 48 ghante me live website ke liye ₹2,999 advance deposit lagta hai (baki ₹2,999 live draft check karne ke baad).
+
+Kya main booking ke liye official UPI QR code share karu?`;
+    }
+  }
+
+  return null;
+}
+
+// Attach quick choices footer
+function attachQuickChoices(replyText, lang) {
+  if (replyText.includes('1 -') || replyText.includes('1.') || replyText.includes('Reply 1')) {
+    return replyText; // Already has choices
+  }
+
+  const menu = lang === 'ENGLISH'
+    ? `\n\nReply:\n1 - Package details\n2 - Call with founder\n3 - Book website slot`
+    : `\n\nReply kijiye:\n1 - Package details\n2 - Founder se call\n3 - Website slot book karein`;
+
+  return replyText + menu;
+}
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
@@ -289,27 +389,47 @@ async function connectToWhatsApp() {
                    msg.message.imageMessage?.caption ||
                    '';
 
-      if (!text.trim()) return;
+      const cleanText = text.trim();
+      if (!cleanText) return;
 
       const isKnownAdLead = confirmedAdLeads.has(remoteJid);
 
       // Lead check: First time message must look like a customer inquiry or ad lead
       if (!isKnownAdLead) {
-        if (!isCustomerInquiry(msg, text)) {
+        if (!isCustomerInquiry(msg, cleanText)) {
           return; // Ignore completely unrelated casual personal messages
         }
-        console.log(`[🎯 NEW AD LEAD from ${remoteJid}]: ${text}`);
+        console.log(`[🎯 NEW AD LEAD from ${remoteJid}]: ${cleanText}`);
         confirmedAdLeads.add(remoteJid);
         saveAdLeads();
       }
 
-      console.log(`[📩 Customer]: ${text}`);
+      console.log(`[📩 Customer]: ${cleanText}`);
 
-      // Call Google Gemini AI with 30-year veteran sales persona and chat history!
-      const aiReply = await callGeminiAI(remoteJid, text);
+      // Track and detect language
+      const currentLang = userLanguages.get(remoteJid) || 'HINDI';
+      const detectedLang = detectCustomerLanguage(cleanText, currentLang);
+      userLanguages.set(remoteJid, detectedLang);
+
+      // 1. FAST PATH: Check if lead typed 1, 2, or 3
+      const singleNum = cleanText.replace(/[^0-9]/g, '');
+      if (singleNum === '1' || singleNum === '2' || singleNum === '3') {
+        const quickReply = getQuickChoiceReply(singleNum, detectedLang);
+        if (quickReply) {
+          console.log(`[⚡ Fast-Path Choice ${singleNum}]: ${quickReply}`);
+          await humanReply(sock, remoteJid, quickReply, 1500);
+          return;
+        }
+      }
+
+      // 2. AI PATH: Process any custom inquiry through Gemini AI
+      let aiReply = await callGeminiAI(remoteJid, cleanText);
+
+      // If AI didn't include the menu, attach the quick reply choices at the bottom
+      aiReply = attachQuickChoices(aiReply, detectedLang);
       console.log(`[🤖 Gemini AI Sales]: ${aiReply}`);
 
-      await humanReply(sock, remoteJid, aiReply, 2000);
+      await humanReply(sock, remoteJid, aiReply, 1800);
 
     } catch (err) {
       console.error('Error handling incoming message:', err);
