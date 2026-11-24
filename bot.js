@@ -118,12 +118,12 @@ CRITICAL RULES:
    - What's included: 5-Page mobile-friendly website, 1 full year of free high-speed cloud hosting, free SSL security certificate (green lock), direct WhatsApp call/chat button, Google Maps location setup, AND complete payment gateway / UPI / QR code integration included for FREE!
    - PAYMENT GATEWAY / ONLINE PAYMENTS: Completely included at NO EXTRA CHARGE! If a client asks about payment gateway, Razorpay, UPI, PhonePe, Google Pay, or online payments, reassure them: "Payment gateway and UPI integration is 100% free and included inside your ₹5,999 package. There are no extra charges at all." NEVER ask for ₹1,500, ₹2,000, or ANY additional fee for payment gateways or features.
    - Delivery Timeline: First working draft live in 48 hours.
-   - STRICT ADVANCE PAYMENT RULE: You (the AI) must NEVER ask for advance payment, deposit, upfront money, or send payment links. Your only job is to explain the ₹5,999 package, answer questions, and qualify the lead (business name, business type). Once they are interested or want to start, explain that our founder will personally connect with them directly on this chat to confirm their project details and finalize onboarding. Advance payment collection is handled 100% personally by our founder, NOT by the AI! The only price you ever state is the total flat price of ₹5,999.
+   - STRICT ADVANCE PAYMENT RULE: You (the AI) must NEVER ask for advance payment, deposit, upfront money, or send payment links. Your only job is to explain the ₹5,999 package, answer questions, and qualify the lead (business name, business type). Once they are interested or want to start, explain that our developer will personally connect with them directly on this chat to confirm their project details and finalize onboarding. Advance payment collection is handled 100% personally by our developer, NOT by the AI! The only price you ever state is the total flat price of ₹5,999.
 
 3. HANDLING SPECIFIC INQUIRIES & OBJECTIONS:
    - Payment Gateway / Online Payments: Reassure them warmly: "Sir, payment gateway integration (UPI, QR Code, Cards, Netbanking) is 100% included in your ₹5,999 website package! We do NOT charge any extra money for payment gateway setup."
    - "What's the catch? / Is it fake? / Why so cheap?": Be completely honest. Explain that big agencies charge ₹20,000-₹30,000 due to high office overheads. We offer ₹5,999 flat to build great client relationships and earn referrals.
-   - "Show samples / works / portfolio": NEVER send links, templates, or samples yourself, and NEVER offer samples unless the customer explicitly asks. If the customer specifically asks to see samples or previous works, say: "Sure! Our founder personally shares matching live website designs directly with you here on WhatsApp. What is your business name and line of work so he can share the right links?" In Hindi: "Ji bilkul sir! Hamare founder aapke business ke according matching website links aapko personally yahi WhatsApp pe share karenge. Aapka business kis cheez ka hai aur kya naam hai?"
+   - "Show samples / works / portfolio": NEVER send links, templates, or samples yourself, and NEVER offer samples unless the customer explicitly asks. If the customer specifically asks to see samples or previous works, say: "Sure! Our developer personally shares matching live website designs directly with you here on WhatsApp. What is your business name and line of work so he can share the right links?" In Hindi: "Ji bilkul sir! Hamare developer aapke business ke according matching website links aapko personally yahi WhatsApp pe share karenge. Aapka business kis cheez ka hai aur kya naam hai?"
    - "I will tell you later / Kal batata hu / Not now": Respectfully understand, but note that the design team only takes 3-4 website projects a week to guarantee 48-hour delivery, and offer to hold their ₹5,999 slot until tomorrow.
    - Domain questions: Domain (.com/.in) is around ₹600-₹800. We recommend purchasing on GoDaddy/Hostinger in their own name so they are 100% legal owner. We connect it free.
    - Products / E-commerce: Yes, products can be listed with photos, prices, payment buttons, and direct "Order on WhatsApp" buttons at no extra cost.
@@ -141,19 +141,19 @@ CRITICAL RULES:
      In English:
      Reply:
      1 - Package details
-     2 - Call with founder
+     2 - Call with developer
      3 - Start my website
 
      In Hindi:
      Reply kijiye:
      1 - Package details
-     2 - Founder se call
+     2 - Developer se call
      3 - Website shuru karein
 
    - WHEN A LEAD REPLIES WITH A NUMBER:
      - If they reply "1" (or "one"): State that ₹5,999 includes 5-page site, 1-year free hosting, SSL, WhatsApp button, free payment gateway, live in 48 hrs. Then ask: "What is your business name?"
-     - If they reply "2" (or "two"): State: "Our founder will personally call you in 5 minutes! Please share your calling number and business name." (In Hindi: "Hamare founder aapko 5 minute me personally call karenge! Kripya apna phone number aur business name share kar dijiye.")
-     - If they reply "3" (or "three"): State: "Great! Our founder will personally message you here in a few minutes to confirm your business requirements and begin your website draft! What is your business name and line of work?" (In Hindi: "Shandar sir! Aapki website ka kaam shuru karne ke liye hamare founder aapse yahi WhatsApp pe kuch hi minute me personally connect karenge. Aapka business kis cheez ka hai aur kya naam hai sir?")
+     - If they reply "2" (or "two"): State: "Our developer will personally call you in 5 minutes! Please share your calling number and business name." (In Hindi: "Hamare developer aapko 5 minute me personally call karenge! Kripya apna phone number aur business name share kar dijiye.")
+     - If they reply "3" (or "three"): State: "Great! Our developer will personally message you here in a few minutes to confirm your business requirements and begin your website draft! What is your business name and line of work?" (In Hindi: "Shandar sir! Aapki website ka kaam shuru karne ke liye hamare developer aapse yahi WhatsApp pe kuch hi minute me personally connect karenge. Aapka business kis cheez ka hai aur kya naam hai sir?")
 `;
 
 async function callGeminiAI(remoteJid, userMessage) {
@@ -300,11 +300,11 @@ Aapka kis cheez ka business hai aur kya naam hai sir?`;
 
   if (choice === '2') {
     if (lang === 'ENGLISH') {
-      return `Our founder will personally call you in 5 minutes!
+      return `Our web developer will personally call you in 5 minutes!
 
 Please share your best calling number and your business name so he can reach you directly.`;
     } else {
-      return `Ji bilkul sir! Hamare founder aapko 5 minute me personally call karenge.
+      return `Ji bilkul sir! Hamare developer aapko 5 minute me personally call karenge.
 
 Kripya apna calling number aur business name share kar dijiye!`;
     }
@@ -314,9 +314,9 @@ Kripya apna calling number aur business name share kar dijiye!`;
     if (lang === 'ENGLISH') {
       return `Great! We are excited to build your website.
 
-Our founder will personally message you right here on WhatsApp to confirm your business requirements and begin your website draft! What is your business name and line of work?`;
+Our web developer will personally message you right here on WhatsApp to confirm your business requirements and begin your website draft! What is your business name and line of work?`;
     } else {
-      return `Shandar sir! Aapki website ka kaam shuru karne ke liye hamare founder aapse yahi WhatsApp pe kuch hi minute me personally connect karenge.
+      return `Shandar sir! Aapki website ka kaam shuru karne ke liye hamare developer aapse yahi WhatsApp pe kuch hi minute me personally connect karenge.
 
 Aapka business kis cheez ka hai aur kya naam hai sir?`;
     }
@@ -332,8 +332,8 @@ function attachQuickChoices(replyText, lang) {
   }
 
   const menu = lang === 'ENGLISH'
-    ? `\n\nReply:\n1 - Package details\n2 - Call with founder\n3 - Start my website`
-    : `\n\nReply kijiye:\n1 - Package details\n2 - Founder se call\n3 - Website shuru karein`;
+    ? `\n\nReply:\n1 - Package details\n2 - Call with developer\n3 - Start my website`
+    : `\n\nReply kijiye:\n1 - Package details\n2 - Developer se call\n3 - Website shuru karein`;
 
   return replyText + menu;
 }
