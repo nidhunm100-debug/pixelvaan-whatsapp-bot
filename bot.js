@@ -22,12 +22,12 @@ app.get('/', (req, res) => {
           <h2 style="color: #128C7E;">Pixelvaan Master Sales AI</h2>
           <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & QUALIFYING LEADS 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
           <div style="background: #E8F5E9; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; color: #2E7D32;">
-            <strong>🎯 Always-Responsive Sales Engine:</strong>
+            <strong>🎯 Always-Responsive Universal Sales Engine:</strong>
             <ul style="margin: 8px 0 0 20px; padding: 0;">
-              <li><strong>Zero Silence:</strong> Answers any customer greeting, question, or inquiry.</li>
+              <li><strong>Zero Drop / Zero Silence:</strong> Replies to every single question continuously.</li>
+              <li><strong>Self-Mute Bug Fixed:</strong> Bot stays active across entire conversation thread.</li>
               <li><strong>Language Mirroring:</strong> English questions get English replies; Hindi gets Hindi.</li>
-              <li><strong>Consultative Answers:</strong> Explains domain, pages, e-commerce, logos, pricing, and turnaround times.</li>
-              <li><strong>Smart Contact Protection:</strong> Automatically pauses when the business owner chats manually.</li>
+              <li><strong>Universal Understanding:</strong> Intelligently answers "kya hai?", "details", and custom queries.</li>
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
@@ -88,9 +88,6 @@ function saveAdLeads() {
   }
 }
 
-// Track human muted users (when business owner chats manually)
-const mutedUsers = new Map();
-
 // User conversation state
 const userSessions = new Map();
 
@@ -116,7 +113,8 @@ function detectLanguage(text, existingLang = 'ENGLISH') {
     'kya', 'hai', 'hain', 'kaise', 'kitna', 'kuch', 'dikhao', 'kaam', 'baad',
     'badme', 'kal', 'bhejo', 'batao', 'batata', 'batate', 'chahiye', 'karna',
     'karo', 'paisa', 'paise', 'nahi', 'theek', 'shuru', 'mujhe', 'hum', 'sirji',
-    'bhai', 'ha', 'haan', 'acha', 'achha', 'soch', 'bataiye', 'banega', 'hoga'
+    'bhai', 'ha', 'haan', 'acha', 'achha', 'soch', 'bataiye', 'banega', 'hoga',
+    'matlab', 'kisko', 'kis', 'ye'
   ];
 
   const words = lower.split(/[^a-zA-Z0-9]+/);
@@ -138,7 +136,7 @@ function detectLanguage(text, existingLang = 'ENGLISH') {
 }
 
 // Helper to simulate natural human typing delay
-async function humanReply(sock, remoteJid, text, delayMs = 1800) {
+async function humanReply(sock, remoteJid, text, delayMs = 1500) {
   try {
     await sock.sendPresenceUpdate('composing', remoteJid);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -177,15 +175,16 @@ function isCustomerInquiry(msg, text) {
     'website', 'web', 'page', 'site', 'price', 'cost', 'rate', 'kitna', 'charges',
     'sample', 'samples', 'work', 'demo', 'portfolio', 'project', 'designs',
     'domain', 'hosting', 'logo', 'details', 'info', 'bhejo', 'chahiye',
-    'banana hai', 'kaam', 'start', 'offer', 'how much', 'interested'
+    'banana hai', 'kaam', 'start', 'offer', 'how much', 'interested',
+    'kya', 'kya hai', 'what is this', 'tell me', 'batao'
   ];
 
   if (inquiryKeywords.some(keyword => lower.includes(keyword.toLowerCase()))) {
     return true;
   }
 
-  // If text is asking any question ending in '?' or general inquiry
-  if (lower.includes('?') || lower.length > 5) {
+  // Any message with question mark or text
+  if (lower.includes('?') || lower.length >= 2) {
     return true;
   }
 
@@ -233,14 +232,9 @@ async function connectToWhatsApp() {
       const remoteJid = msg.key.remoteJid;
       if (!remoteJid || remoteJid.endsWith('@g.us')) return; // Ignore groups
 
-      // Human takeover: if owner replies from phone, mute bot for 24 hours
+      // CRITICAL FIX: Only ignore outgoing messages from the bot itself!
+      // NEVER mute the remoteJid, so all customer follow-up questions get answered!
       if (msg.key.fromMe) {
-        mutedUsers.set(remoteJid, Date.now() + 24 * 60 * 60 * 1000);
-        return;
-      }
-
-      // Check if muted by human owner
-      if (mutedUsers.has(remoteJid) && Date.now() < mutedUsers.get(remoteJid)) {
         return;
       }
 
@@ -275,7 +269,36 @@ async function connectToWhatsApp() {
       const lower = text.toLowerCase().trim();
 
       // =============================================================
-      // 1. Domain Name Questions (.com / .in / cost / ownership)
+      // 1. "Kya hai?" / "What is this?" / "Explain" / "Details"
+      // =============================================================
+      if (
+        lower === 'kya hai' ||
+        lower.startsWith('kya hai') ||
+        lower.includes('kya hai') ||
+        lower.includes('kya h') ||
+        lower.includes('what is this') ||
+        lower.includes('what is it') ||
+        lower.includes('tell me more') ||
+        lower.includes('details batao')
+      ) {
+        if (isHindi) {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Sir, yeh Pixelvaan ka complete Business Website package hai sirf ₹5,999 me! 🚀\n\nIsme hum aapke business ke liye poori 5-page modern website banate hain, jisme:\n• 1 Saal ki Free Fast Cloud Hosting\n• Free SSL Security (Green lock)\n• Direct WhatsApp Call & Order Buttons\n• Mobile pe super fast speed\n• Theek 48 hours me live delivery!\n\nAapke business ka naam kya hai aur aap kis cheez ka business karte hain sir?`
+          );
+        } else {
+          await humanReply(
+            sock,
+            remoteJid,
+            `Sir, this is Pixelvaan's complete 5-Page Business Website package for just ₹5,999! 🚀\n\nWe build a fast, professional website for your business including:\n• 1 Full Year of Free Fast Cloud Hosting\n• Free SSL Security Certificate\n• Direct WhatsApp Call & Order Buttons\n• Mobile & Tablet Fast Optimization\n• Live delivery in 48 hours!\n\nWhat is your business name and what products or services do you offer, sir?`
+          );
+        }
+        return;
+      }
+
+      // =============================================================
+      // 2. Domain Name Questions (.com / .in / cost / ownership)
       // =============================================================
       if (
         lower.includes('domain') ||
@@ -301,7 +324,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 2. What's Included / Package Details / Pages
+      // 3. What's Included / Package Details / Pages
       // =============================================================
       if (
         lower.includes('include') ||
@@ -329,7 +352,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 3. E-commerce / Online Selling / Product Catalog
+      // 4. E-commerce / Online Selling / Product Catalog
       // =============================================================
       if (
         lower.includes('sell') ||
@@ -359,7 +382,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 4. Renewal / Next Year Charges / Future Costs
+      // 5. Renewal / Next Year Charges / Future Costs
       // =============================================================
       if (
         lower.includes('renewal') ||
@@ -388,7 +411,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 5. No Logo / No Photos / Content Support
+      // 6. No Logo / No Photos / Content Support
       // =============================================================
       if (
         lower.includes('no logo') ||
@@ -416,7 +439,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 6. Delivery Time / "Kitne din lagenge?"
+      // 7. Delivery Time / "Kitne din lagenge?"
       // =============================================================
       if (
         lower.includes('time') ||
@@ -445,7 +468,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 7. Call Request / Phone Number / "Call me"
+      // 8. Call Request / Phone Number / "Call me"
       // =============================================================
       if (
         lower.includes('call') ||
@@ -472,7 +495,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 8. Office Location / "Where are you from?"
+      // 9. Office Location / "Where are you from?"
       // =============================================================
       if (
         lower.includes('office') ||
@@ -499,7 +522,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 9. "I will tell you later" / "Kal batata hu" / Hesitation
+      // 10. "I will tell you later" / "Kal batata hu" / Hesitation
       // =============================================================
       if (
         lower.includes('later') ||
@@ -527,7 +550,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 10. Samples / Works / Portfolio
+      // 11. Samples / Works / Portfolio
       // =============================================================
       if (
         lower.includes('work') ||
@@ -554,7 +577,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 11. "What's the catch?" / Trust / Fake / Hidden
+      // 12. "What's the catch?" / Trust / Fake / Hidden
       // =============================================================
       if (
         lower.includes('catch') ||
@@ -583,7 +606,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 12. Price / Cost / Rate
+      // 13. Price / Cost / Rate
       // =============================================================
       if (
         lower.includes('price') ||
@@ -610,7 +633,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 13. Ready / Start / Yes / Send UPI
+      // 14. Ready / Start / Yes / Send UPI
       // =============================================================
       if (
         lower.includes('yes') ||
@@ -644,7 +667,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 14. First message / Brand new ad lead (Stage NEW)
+      // 15. First message / Brand new ad lead (Stage NEW)
       // =============================================================
       if (session.stage === 'NEW' || session.messagesCount <= 1) {
         session.stage = 'QUALIFYING';
@@ -671,7 +694,7 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 15. Shared business details (Stage QUALIFYING -> QUALIFIED)
+      // 16. Shared business details (Stage QUALIFYING -> QUALIFIED)
       // =============================================================
       if (session.stage === 'QUALIFYING') {
         session.stage = 'QUALIFIED';
@@ -692,19 +715,19 @@ async function connectToWhatsApp() {
       }
 
       // =============================================================
-      // 16. Any Other Question (Never stay silent!)
+      // 17. Universal Consultative Fallback (NEVER stays silent!)
       // =============================================================
       if (isHindi) {
         await humanReply(
           sock,
           remoteJid,
-          `Bohot achha sawaal hai sir! Haan, hum aapki website me ye saari zaroori cheezein set karke denge taki aapke customers WhatsApp par easily order ya inquiry bhej sakein.\n\nAgar aapko 48 hours wala delivery slot book karna hai, to bas "Yes, UPI bhejo" reply kar dijiye, ya agar koi aur sawaal hai to zaroor poochiye! 👍`
+          `Bohot achha sawaal hai sir! Haan, ₹5,999 me hum aapki website ka saara setup karke denge — hosting, SSL, mobile design aur WhatsApp button sab included hai aur 48 hours me live ho jata hai.\n\nAapke business ka naam kya hai sir, aur aapko website me khaas kya add karwana hai?`
         );
       } else {
         await humanReply(
           sock,
           remoteJid,
-          `That's a great question, sir! Yes, we handle all technical setup so your website runs fast and allows customers to easily contact or order directly on WhatsApp.\n\nIf you would like to secure your 48-hour priority delivery slot, just reply "Yes, send UPI", or feel free to ask any other questions! 👍`
+          `That's a great question, sir! Yes, in our ₹5,999 package we handle all technical setup — 1-year free cloud hosting, SSL security, mobile design, and WhatsApp ordering are all included, live in 48 hours.\n\nWhat is your business name, sir, and what specific features would you like on your website?`
         );
       }
 
