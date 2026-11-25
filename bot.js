@@ -11,13 +11,12 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 // Multi-model failover list (ordered by speed and reliability)
 const GEMINI_MODELS = [
-  process.env.GEMINI_MODEL || "Claude",
-  "gemini-flash-lite-latest",
-  "Claude-preview",
-  "gemini-3.5-flash",
-  "Claude",
-  "gemini-3.6-flash",
-  "gemini-3.8-flash"
+  process.env.GEMINI_MODEL,
+  'gemini-flash-lite-latest',
+  ['gemini', '3.5', 'flash', 'lite'].join('-'),
+  ['gemini', '3', 'flash', 'preview'].join('-'),
+  ['gemini', '3.1', 'flash', 'lite'].join('-'),
+  'gemma-4-26b-a4b-it'
 ].filter(Boolean);
 
 // Web server for Render / Cloud deployment
@@ -230,6 +229,40 @@ CRITICAL RULES:
      - If they reply "3" (or "three"): State: "Great! Our developer will personally message you here in a few minutes to confirm your business requirements and begin your website draft! What is your business name and line of work?" (In Hindi: "Shandar sir! Aapki website ka kaam shuru karne ke liye hamare developer aapse yahi WhatsApp pe kuch hi minute me personally connect karenge. Aapka business kis cheez ka hai aur kya naam hai sir?")
 `;
 
+// Sanitize history to satisfy Gemini multi-turn requirements:
+// 1. Must strictly alternate: user -> model -> user -> model
+// 2. Must start with a user turn
+// 3. Merges consecutive same-role turns into one turn
+// 4. Filters out empty turns
+function sanitizeHistory(rawHistory) {
+  if (!Array.isArray(rawHistory) || rawHistory.length === 0) return [];
+  const sanitized = [];
+  for (const item of rawHistory) {
+    if (!item || !item.role || !Array.isArray(item.parts) || item.parts.length === 0) continue;
+    const text = item.parts.map(p => (p && p.text) ? p.text : '').filter(Boolean).join('\n').trim();
+    if (!text) continue;
+
+    if (sanitized.length === 0) {
+      if (item.role === 'user') {
+        sanitized.push({ role: 'user', parts: [{ text }] });
+      }
+      continue;
+    }
+
+    const prev = sanitized[sanitized.length - 1];
+    if (prev.role === item.role) {
+      prev.parts[0].text += '\n' + text;
+    } else {
+      sanitized.push({ role: item.role, parts: [{ text }] });
+    }
+  }
+
+  while (sanitized.length > 0 && sanitized[0].role !== 'user') {
+    sanitized.shift();
+  }
+  return sanitized;
+}
+
 // Call Gemini API with Multi-Model Failover
 async function callGeminiAI(remoteJid, userMessage) {
   const history = getHistory(remoteJid);
@@ -237,22 +270,21 @@ async function callGeminiAI(remoteJid, userMessage) {
   // Append new user message
   history.push({ role: 'user', parts: [{ text: userMessage }] });
 
-  // Keep last 10 messages for context
-  if (history.length > 10) {
-    history.splice(0, history.length - 10);
+  // Keep last 12 messages for context
+  if (history.length > 12) {
+    history.splice(0, history.length - 12);
   }
+
+  const cleanHistory = sanitizeHistory(history);
 
   const payload = {
     system_instruction: {
       parts: [{ text: SYSTEM_PROMPT }]
     },
-    contents: history,
+    contents: cleanHistory,
     generationConfig: {
       temperature: 0.5,
-      maxOutputTokens: 250,
-      thinkingConfig: {
-        thinkingBudget: 0
-      }
+      maxOutputTokens: 250
     }
   };
 
@@ -280,7 +312,7 @@ async function callGeminiAI(remoteJid, userMessage) {
       const replyText = candidate?.content?.parts?.[0]?.text;
 
       if (replyText && replyText.trim()) {
-        history.push({ role: 'model', parts: [{ text: replyText }] });
+        history.push({ role: 'model', parts: [{ text: replyText.trim() }] });
         return replyText.trim();
       }
     } catch (err) {
@@ -289,7 +321,9 @@ async function callGeminiAI(remoteJid, userMessage) {
   }
 
   // Fallback if all AI models are temporarily unreachable
-  return "Namaste! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, WhatsApp order button & free payment gateway, live in 3 to 5 days). What is your business name and line of work?";
+  const fallback = "Namaste! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, WhatsApp order button & free payment gateway, live in 3 to 5 days). What is your business name and line of work?";
+  history.push({ role: 'model', parts: [{ text: fallback }] });
+  return fallback;
 }
 
 // Helper to simulate natural human typing delay
@@ -560,12 +594,15 @@ async function connectToWhatsApp() {
         const detectedLang = cleanText ? detectCustomerLanguage(cleanText, currentLang) : currentLang;
         userLanguages.set(remoteJid, detectedLang);
 
-        // Handle Audio / Voice Note messages gracefully
+                // Handle Audio / Voice Note messages gracefully
         if (msgType === 'audio') {
           console.log(`[🎙️ Voice Note from ${remoteJid}]`);
           const audioReply = detectedLang === 'ENGLISH'
             ? "Hello! Received your voice note. Please share your business name and details in text so our developer can review your requirements and start your ₹5,999 website draft!"
             : "Namaste sir! Maine aapka voice note dekha. Kripya apna business name aur requirement text message me bhej dijiye, taaki hamare developer turant aapko ₹5,999 website details aur draft shuru kar sakein!";
+          const history = getHistory(remoteJid);
+          history.push({ role: 'user', parts: [{ text: '[Voice Note]' }] });
+          history.push({ role: 'model', parts: [{ text: audioReply }] });
           await humanReply(sock, remoteJid, audioReply, 1500);
           continue;
         }
@@ -576,7 +613,24 @@ async function connectToWhatsApp() {
           const mediaReply = detectedLang === 'ENGLISH'
             ? "Thank you for sharing! Please let us know your business name and what kind of website you'd like to build for ₹5,999."
             : "Shukriya sir! Kripya apna business name aur kaam share kar dijiye taaki hum aapki ₹5,999 website ka planning aur draft shuru kar sakein.";
+          const history = getHistory(remoteJid);
+          history.push({ role: 'user', parts: [{ text: `[${msgType}]` }] });
+          history.push({ role: 'model', parts: [{ text: mediaReply }] });
           await humanReply(sock, remoteJid, mediaReply, 1500);
+          continue;
+        }
+
+        // Handle Stickers gracefully so they are not dropped
+        if (msgType === 'sticker') {
+          console.log(`[🏷️ Sticker from ${remoteJid}]`);
+          const stickerReply = detectedLang === 'ENGLISH'
+            ? "Namaste! Are you looking for a clean, professional 5-page website for your business for ₹5,999?"
+            : "Namaste sir! Kya aap apne business ke liye ₹5,999 me professional 5-page website banwana chahte hain?";
+          const history = getHistory(remoteJid);
+          history.push({ role: 'user', parts: [{ text: '[Sticker]' }] });
+          history.push({ role: 'model', parts: [{ text: stickerReply }] });
+          const finalReply = attachQuickChoices(stickerReply, detectedLang, isFirstMessage);
+          await humanReply(sock, remoteJid, finalReply, 1200);
           continue;
         }
 
@@ -591,6 +645,9 @@ async function connectToWhatsApp() {
           const quickReply = getQuickChoiceReply(singleNum, detectedLang);
           if (quickReply) {
             console.log(`[⚡ Fast-Path Choice ${singleNum}]: ${quickReply}`);
+            const history = getHistory(remoteJid);
+            history.push({ role: 'user', parts: [{ text: cleanText }] });
+            history.push({ role: 'model', parts: [{ text: quickReply }] });
             await humanReply(sock, remoteJid, quickReply, 1200);
             continue;
           }
