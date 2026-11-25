@@ -8,7 +8,17 @@ const path = require('path');
 require('dotenv').config();
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
-const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
+
+// Multi-model failover list (ordered by speed and reliability)
+const GEMINI_MODELS = [
+  process.env.GEMINI_MODEL || "Claude",
+  "gemini-flash-lite-latest",
+  "Claude-preview",
+  "gemini-3.5-flash",
+  "Claude",
+  "gemini-3.6-flash",
+  "gemini-3.8-flash"
+].filter(Boolean);
 
 // Web server for Render / Cloud deployment
 const app = express();
@@ -24,15 +34,15 @@ app.get('/', (req, res) => {
       <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; text-align: center; padding: 50px; background: #f8f9fa;">
         <div style="max-width: 600px; margin: auto; background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.08);">
           <h2 style="color: #128C7E;">Pixelvaan Autonomous AI Sales Engine</h2>
-          <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & POWERED BY Claude AI 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
+          <p>Status: <strong style="color: ${isConnected ? '#25D366' : '#E53E3E'};">${isConnected ? '🟢 CONNECTED & POWERED BY AI 24/7' : '🟡 WAITING FOR QR SCAN'}</strong></p>
           <div style="background: #E8F5E9; padding: 15px; border-radius: 8px; text-align: left; font-size: 14px; color: #2E7D32;">
             <strong>🎯 Full Gemini AI Brain Active:</strong>
             <ul style="margin: 8px 0 0 20px; padding: 0;">
-              <li><strong>Zero Script Limitations:</strong> Understands and answers ANY question like a human.</li>
+              <li><strong>Zero Message Drops:</strong> Every message in batches and disappearing/ephemeral chats is answered.</li>
+              <li><strong>Multi-Model Failover:</strong> Automatic fallback across active Gemini models for zero downtime.</li>
               <li><strong>30-Year Sales Veteran Persona:</strong> Empathetic, polite, consultative, focused on ₹5,999 closing.</li>
               <li><strong>Automatic Language Mirroring:</strong> Answers in simple English, Hindi, or Kannada.</li>
-              <li><strong>Full Memory:</strong> Remembers the entire conversation history per lead.</li>
-              <li><strong>Strict Privacy:</strong> Automatically ignores personal friends and family.</li>
+              <li><strong>Free Payment Gateway Included:</strong> 100% free UPI, QR code, and payment gateway integration.</li>
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
@@ -42,7 +52,6 @@ app.get('/', (req, res) => {
     </html>
   `);
 });
-
 
 app.get("/reset", async (req, res) => {
   try {
@@ -108,6 +117,17 @@ app.get('/qr', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Web server running on port ${PORT}`);
 });
+
+// 24/7 Render Container Keep-Alive Ping (Runs every 10 minutes)
+setInterval(async () => {
+  try {
+    const pingUrl = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}/`;
+    const res = await fetch(pingUrl);
+    console.log(`[Keep-Alive 24/7 Ping]: ${pingUrl} responded with status ${res.status}`);
+  } catch (err) {
+    console.error('[Keep-Alive Ping Note]:', err.message);
+  }
+}, 10 * 60 * 1000);
 
 // Persistent track of confirmed ad leads
 const AD_LEADS_FILE = path.join(__dirname, 'ad_leads.json');
@@ -210,6 +230,7 @@ CRITICAL RULES:
      - If they reply "3" (or "three"): State: "Great! Our developer will personally message you here in a few minutes to confirm your business requirements and begin your website draft! What is your business name and line of work?" (In Hindi: "Shandar sir! Aapki website ka kaam shuru karne ke liye hamare developer aapse yahi WhatsApp pe kuch hi minute me personally connect karenge. Aapka business kis cheez ka hai aur kya naam hai sir?")
 `;
 
+// Call Gemini API with Multi-Model Failover
 async function callGeminiAI(remoteJid, userMessage) {
   const history = getHistory(remoteJid);
 
@@ -235,34 +256,44 @@ async function callGeminiAI(remoteJid, userMessage) {
     }
   };
 
-  try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+  // Try each model sequentially in failover list
+  for (const model of GEMINI_MODELS) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
 
-    const data = await response.json();
-    const candidate = data.candidates?.[0];
-    const replyText = candidate?.content?.parts?.[0]?.text;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
 
-    if (replyText && replyText.trim()) {
-      // Append AI reply to history
-      history.push({ role: 'model', parts: [{ text: replyText }] });
-      return replyText.trim();
+      if (!response.ok) {
+        console.warn(`[Gemini Failover]: Model ${model} returned status ${response.status}`);
+        continue;
+      }
+
+      const data = await response.json();
+      const candidate = data.candidates?.[0];
+      const replyText = candidate?.content?.parts?.[0]?.text;
+
+      if (replyText && replyText.trim()) {
+        history.push({ role: 'model', parts: [{ text: replyText }] });
+        return replyText.trim();
+      }
+    } catch (err) {
+      console.warn(`[Gemini Failover]: Model ${model} failed: ${err.message}`);
     }
-
-    console.error('Gemini API returned unexpected structure:', JSON.stringify(data));
-  } catch (err) {
-    console.error('Error calling Gemini API:', err);
   }
 
-  // Fallback if API is temporarily unavailable
-  return "Hello! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, and WhatsApp buttons, live in 3 to 5 days). What is your business name and what kind of business do you run?";
+  // Fallback if all AI models are temporarily unreachable
+  return "Namaste! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, WhatsApp order button & free payment gateway, live in 3 to 5 days). What is your business name and line of work?";
 }
 
 // Helper to simulate natural human typing delay
-async function humanReply(sock, remoteJid, text, delayMs = 1800) {
+async function humanReply(sock, remoteJid, text, delayMs = 1500) {
   try {
     await sock.sendPresenceUpdate('composing', remoteJid);
     await new Promise((resolve) => setTimeout(resolve, delayMs));
@@ -273,41 +304,90 @@ async function humanReply(sock, remoteJid, text, delayMs = 1800) {
   }
 }
 
-// Comprehensive Lead and Ad Trigger Detection
-function isCustomerInquiry(msg, text) {
-  const contextInfo = msg.message?.extendedTextMessage?.contextInfo ||
-                      msg.message?.imageMessage?.contextInfo ||
-                      msg.message?.contextInfo;
+// Recursive message unwrapper: extracts the inner message from wrappers like
+// ephemeralMessage, viewOnceMessage, documentWithCaptionMessage, protocolMessage, etc.
+function unwrapMessage(msgObj) {
+  if (!msgObj) return null;
+  let unwrapped = msgObj;
 
-  if (contextInfo?.externalAdReply) return true;
-  if (contextInfo?.conversionData || contextInfo?.sourceId) return true;
-
-  const lower = text.toLowerCase().trim();
-  const inquiryKeywords = [
-    'ನಿಮ್ಮ ವ್ಯಾಪಾರದ ಕುರಿತು ನಾನು ಇನ್ನಷ್ಟು ತಿಳಿದುಕೊಳ್ಳಬಹುದೇ',
-    'ನಿಮ್ಮ ಜಾಹೀರಾತಿನ ಕುರಿತು ನೀವು ನನಗೆ ಇನ್ನಷ್ಟು ಹೇಳಬಹುದೇ',
-    'ಯಾರಾದರೂ ಚಾಟ್ ಮಾಡಲು ಲಭ್ಯವಿರುವರೇ',
-    'can i learn more about your business',
-    'can you tell me more about your ad',
-    'is anyone available to chat',
-    '5999', '₹5,999', 'pixelvaan', 'what\'s the catch', 'website package',
-    'hi', 'hello', 'hey', 'namaste',
-    'website', 'web', 'page', 'site', 'price', 'cost', 'rate', 'kitna', 'charges',
-    'sample', 'samples', 'work', 'demo', 'portfolio', 'project', 'designs',
-    'domain', 'hosting', 'logo', 'details', 'info', 'bhejo', 'chahiye',
-    'banana hai', 'kaam', 'start', 'offer', 'how much', 'interested',
-    'kya', 'kya hai', 'what is this', 'tell me', 'batao'
-  ];
-
-  if (inquiryKeywords.some(keyword => lower.includes(keyword.toLowerCase()))) {
-    return true;
+  while (unwrapped) {
+    if (unwrapped.ephemeralMessage?.message) {
+      unwrapped = unwrapped.ephemeralMessage.message;
+    } else if (unwrapped.viewOnceMessage?.message) {
+      unwrapped = unwrapped.viewOnceMessage.message;
+    } else if (unwrapped.viewOnceMessageV2?.message) {
+      unwrapped = unwrapped.viewOnceMessageV2.message;
+    } else if (unwrapped.viewOnceMessageV2Extension?.message) {
+      unwrapped = unwrapped.viewOnceMessageV2Extension.message;
+    } else if (unwrapped.documentWithCaptionMessage?.message) {
+      unwrapped = unwrapped.documentWithCaptionMessage.message;
+    } else if (unwrapped.protocolMessage?.editedMessage) {
+      unwrapped = unwrapped.protocolMessage.editedMessage;
+    } else {
+      break;
+    }
   }
 
-  if (lower.includes('?') || lower.length >= 2) {
-    return true;
+  return unwrapped;
+}
+
+// Extract human-readable text and message type from any WhatsApp message
+function extractMessageContent(rawMsg) {
+  const unwrapped = unwrapMessage(rawMsg.message);
+  if (!unwrapped) return { text: '', type: 'empty' };
+
+  // 1. Standard text fields
+  if (unwrapped.conversation) {
+    return { text: unwrapped.conversation.trim(), type: 'text' };
+  }
+  if (unwrapped.extendedTextMessage?.text) {
+    return { text: unwrapped.extendedTextMessage.text.trim(), type: 'text' };
   }
 
-  return false;
+  // 2. Media with caption
+  if (unwrapped.imageMessage?.caption) {
+    return { text: unwrapped.imageMessage.caption.trim(), type: 'image_caption' };
+  }
+  if (unwrapped.videoMessage?.caption) {
+    return { text: unwrapped.videoMessage.caption.trim(), type: 'video_caption' };
+  }
+  if (unwrapped.documentMessage?.caption) {
+    return { text: unwrapped.documentMessage.caption.trim(), type: 'document_caption' };
+  }
+
+  // 3. Interactive buttons, template replies, and lists
+  if (unwrapped.buttonsResponseMessage?.selectedButtonId || unwrapped.buttonsResponseMessage?.selectedDisplayText) {
+    const btnText = unwrapped.buttonsResponseMessage.selectedDisplayText || unwrapped.buttonsResponseMessage.selectedButtonId;
+    return { text: String(btnText).trim(), type: 'button_response' };
+  }
+  if (unwrapped.templateButtonReplyMessage?.selectedId || unwrapped.templateButtonReplyMessage?.selectedDisplayText) {
+    const tplText = unwrapped.templateButtonReplyMessage.selectedDisplayText || unwrapped.templateButtonReplyMessage.selectedId;
+    return { text: String(tplText).trim(), type: 'template_reply' };
+  }
+  if (unwrapped.listResponseMessage?.singleSelectReply?.selectedRowId || unwrapped.listResponseMessage?.title) {
+    const listText = unwrapped.listResponseMessage.title || unwrapped.listResponseMessage.singleSelectReply.selectedRowId;
+    return { text: String(listText).trim(), type: 'list_reply' };
+  }
+  if (unwrapped.interactiveResponseMessage?.nativeFlowResponseMessage?.paramsJson) {
+    try {
+      const params = JSON.parse(unwrapped.interactiveResponseMessage.nativeFlowResponseMessage.paramsJson);
+      const val = params.id || params.text || '';
+      return { text: String(val).trim(), type: 'interactive_reply' };
+    } catch (e) {}
+  }
+
+  // 4. Voice notes / Audio
+  if (unwrapped.audioMessage) {
+    return { text: '', type: 'audio' };
+  }
+
+  // 5. Uncaptioned media
+  if (unwrapped.imageMessage) return { text: '', type: 'image' };
+  if (unwrapped.videoMessage) return { text: '', type: 'video' };
+  if (unwrapped.documentMessage) return { text: '', type: 'document' };
+  if (unwrapped.stickerMessage) return { text: '', type: 'sticker' };
+
+  return { text: '', type: 'unknown' };
 }
 
 // Helper to detect language
@@ -403,12 +483,13 @@ function attachQuickChoices(replyText, lang, isFirstMessage) {
   return replyText + menu;
 }
 
+// Short-term deduplication cache for messages
+const processedMessageIds = new Set();
+
 async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
   const sock = makeWASocket({
-  // socket instance
-
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' })
@@ -433,7 +514,7 @@ async function connectToWhatsApp() {
     } else if (connection === 'open') {
       isConnected = true;
       currentQR = null;
-      console.log('🚀 Pixelvaan Gemini AI Sales Engine is LIVE & CONNECTED!');
+      console.log('🚀 Pixelvaan Gemini AI Sales Engine is LIVE & CONNECTED 24/7!');
     }
   });
 
@@ -441,62 +522,91 @@ async function connectToWhatsApp() {
 
   sock.ev.on('messages.upsert', async (m) => {
     try {
-      const msg = m.messages[0];
-      if (!msg.message) return;
+      if (!m.messages || !Array.isArray(m.messages)) return;
 
-      const remoteJid = msg.key.remoteJid;
-      if (!remoteJid || remoteJid.endsWith('@g.us')) return; // Ignore groups
+      // Process EVERY message in batch to prevent dropping queued messages
+      for (const msg of m.messages) {
+        if (!msg.message) continue;
 
-      // Ignore outgoing messages from the bot itself
-      if (msg.key.fromMe) {
-        return;
-      }
+        const remoteJid = msg.key.remoteJid;
+        if (!remoteJid || remoteJid.endsWith('@g.us')) continue; // Ignore groups
 
-      const text = msg.message.conversation ||
-                   msg.message.extendedTextMessage?.text ||
-                   msg.message.imageMessage?.caption ||
-                   '';
+        // Ignore messages sent by the bot itself
+        if (msg.key.fromMe) continue;
 
-      const cleanText = text.trim();
-      if (!cleanText) return;
-
-      const isFirstMessage = !confirmedAdLeads.has(remoteJid);
-      if (isFirstMessage) {
-        console.log(`[🎯 NEW LEAD from ${remoteJid}]: ${cleanText}`);
-        confirmedAdLeads.add(remoteJid);
-        saveAdLeads();
-      }
-
-      console.log(`[📩 Customer]: ${cleanText}`);
-
-      // Track and detect language
-      const currentLang = userLanguages.get(remoteJid) || 'HINDI';
-      const detectedLang = detectCustomerLanguage(cleanText, currentLang);
-      userLanguages.set(remoteJid, detectedLang);
-
-      // 1. FAST PATH: Check if lead typed 1, 2, or 3
-      const singleNum = cleanText.replace(/[^0-9]/g, '');
-      if (singleNum === '1' || singleNum === '2' || singleNum === '3') {
-        const quickReply = getQuickChoiceReply(singleNum, detectedLang);
-        if (quickReply) {
-          console.log(`[⚡ Fast-Path Choice ${singleNum}]: ${quickReply}`);
-          await humanReply(sock, remoteJid, quickReply, 1500);
-          return;
+        // Deduplicate messages by ID to prevent double-replying on retries
+        const msgId = msg.key.id;
+        if (msgId) {
+          if (processedMessageIds.has(msgId)) continue;
+          processedMessageIds.add(msgId);
+          if (processedMessageIds.size > 2000) {
+            const firstItem = processedMessageIds.values().next().value;
+            processedMessageIds.delete(firstItem);
+          }
         }
+
+        const { text: cleanText, type: msgType } = extractMessageContent(msg);
+
+        // Check if customer is a new lead
+        const isFirstMessage = !confirmedAdLeads.has(remoteJid);
+        if (isFirstMessage) {
+          console.log(`[🎯 NEW LEAD from ${remoteJid}]: Type=${msgType}, Text="${cleanText}"`);
+          confirmedAdLeads.add(remoteJid);
+          saveAdLeads();
+        }
+
+        // Track and detect language
+        const currentLang = userLanguages.get(remoteJid) || 'HINDI';
+        const detectedLang = cleanText ? detectCustomerLanguage(cleanText, currentLang) : currentLang;
+        userLanguages.set(remoteJid, detectedLang);
+
+        // Handle Audio / Voice Note messages gracefully
+        if (msgType === 'audio') {
+          console.log(`[🎙️ Voice Note from ${remoteJid}]`);
+          const audioReply = detectedLang === 'ENGLISH'
+            ? "Hello! Received your voice note. Please share your business name and details in text so our developer can review your requirements and start your ₹5,999 website draft!"
+            : "Namaste sir! Maine aapka voice note dekha. Kripya apna business name aur requirement text message me bhej dijiye, taaki hamare developer turant aapko ₹5,999 website details aur draft shuru kar sakein!";
+          await humanReply(sock, remoteJid, audioReply, 1500);
+          continue;
+        }
+
+        // Handle Uncaptioned Images / Media gracefully
+        if (!cleanText && (msgType === 'image' || msgType === 'video' || msgType === 'document')) {
+          console.log(`[📸 Media from ${remoteJid}]`);
+          const mediaReply = detectedLang === 'ENGLISH'
+            ? "Thank you for sharing! Please let us know your business name and what kind of website you'd like to build for ₹5,999."
+            : "Shukriya sir! Kripya apna business name aur kaam share kar dijiye taaki hum aapki ₹5,999 website ka planning aur draft shuru kar sakein.";
+          await humanReply(sock, remoteJid, mediaReply, 1500);
+          continue;
+        }
+
+        // If after unwrapping there is still no text, skip
+        if (!cleanText) continue;
+
+        console.log(`[📩 Customer ${remoteJid}]: ${cleanText}`);
+
+        // 1. FAST PATH: Check if lead typed or clicked 1, 2, or 3
+        const singleNum = cleanText.replace(/[^0-9]/g, '');
+        if (singleNum === '1' || singleNum === '2' || singleNum === '3') {
+          const quickReply = getQuickChoiceReply(singleNum, detectedLang);
+          if (quickReply) {
+            console.log(`[⚡ Fast-Path Choice ${singleNum}]: ${quickReply}`);
+            await humanReply(sock, remoteJid, quickReply, 1200);
+            continue;
+          }
+        }
+
+        // 2. AI PATH: Process custom inquiry through Multi-Model Gemini AI
+        let aiReply = await callGeminiAI(remoteJid, cleanText);
+
+        // Attach quick reply choices ONLY on the very first message, strip if repeated later
+        aiReply = attachQuickChoices(aiReply, detectedLang, isFirstMessage);
+        console.log(`[🤖 Gemini AI Sales]: ${aiReply}`);
+
+        await humanReply(sock, remoteJid, aiReply, 1800);
       }
-
-
-      // 2. AI PATH: Process any custom inquiry through Gemini AI
-      let aiReply = await callGeminiAI(remoteJid, cleanText);
-
-      // Attach quick reply choices ONLY on the very first message, strip if repeated later
-      aiReply = attachQuickChoices(aiReply, detectedLang, isFirstMessage);
-      console.log(`[🤖 Gemini AI Sales]: ${aiReply}`);
-
-      await humanReply(sock, remoteJid, aiReply, 1800);
-
     } catch (err) {
-      console.error('Error handling incoming message:', err);
+      console.error('Error handling incoming messages:', err);
     }
   });
 }
