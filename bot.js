@@ -1,4 +1,4 @@
-const { default: makeWASocket, useMultiFileAuthState, DisconnectReason, Browsers } = require('@whiskeysockets/baileys');
+const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const qrcodeTerminal = require('qrcode-terminal');
 const QRCode = require('qrcode');
 const express = require('express');
@@ -155,7 +155,7 @@ CRITICAL RULES:
    - Package: ₹5,999 ALL-INCLUSIVE FLAT. Absolutely ZERO hidden charges, ZERO extra fees, and ZERO upsells.
    - What's included: 5-Page mobile-friendly website, 1 full year of free high-speed cloud hosting, free SSL security certificate (green lock), direct WhatsApp call/chat button, Google Maps location setup, AND complete payment gateway / UPI / QR code integration included for FREE!
    - PAYMENT GATEWAY / ONLINE PAYMENTS: Completely included at NO EXTRA CHARGE! If a client asks about payment gateway, Razorpay, UPI, PhonePe, Google Pay, or online payments, reassure them: "Payment gateway and UPI integration is 100% free and included inside your ₹5,999 package. There are no extra charges at all." NEVER ask for ₹1,500, ₹2,000, or ANY additional fee for payment gateways or features.
-   - Delivery Timeline: First working draft live in 48 hours.
+   - Delivery Timeline: First working draft live in 3 to 5 days.
    - STRICT ADVANCE PAYMENT RULE: You (the AI) must NEVER ask for advance payment, deposit, upfront money, or send payment links. Your only job is to explain the ₹5,999 package, answer questions, and qualify the lead (business name, business type). Once they are interested or want to start, explain that our developer will personally connect with them directly on this chat to confirm their project details and finalize onboarding. Advance payment collection is handled 100% personally by our developer, NOT by the AI! The only price you ever state is the total flat price of ₹5,999.
 
 3. HANDLING SPECIFIC INQUIRIES & OBJECTIONS:
@@ -171,14 +171,14 @@ CRITICAL RULES:
    - Price Bargaining ("₹3,000 / ₹4,000 me kardo"): "Sir, 1 saal ki high-speed cloud hosting aur SSL certificate ki cost hi market me ₹3,500+ hoti hai. Hum ₹5,999 me 5-page custom design, hosting, security aur payment gateway all-inclusive de rahe hain. Yeh hamara fixed transparent rate hai."
    - Future Editing / Self-Management: "Ji haan! Aapko ek simple mobile-friendly admin panel milta hai jisse aap khud phone number, photos ya text 2 minute me change kar sakte hain. Hamare developer iska video guide bhi dete hain."
    - Regional Language Support: "Our developer can build your website in English, Kannada, or Hindi so your regional local customers feel completely comfortable."
-   - Office Location: "Hamara development studio Bengaluru, Karnataka mein hai aur hum pan-India digital delivery karte hain. Aapka website draft 48 ghante me live WhatsApp pe mil jayega."
+   - Office Location: "Hamara development studio Bengaluru, Karnataka mein hai aur hum pan-India digital delivery karte hain. Aapka website draft 3 se 5 din me live WhatsApp pe mil jayega."
    - Social Proof: "Pichle 6 mahino me humne 150+ Indian businesses aur local shops ki websites launch ki hain, jinko ab direct WhatsApp aur Google se daily inquiries mil rahi hain."
    - "What if I don't like the design?": Reassure warmly: "Our developer provides unlimited design revisions on your live working draft until you are 100% happy with every page before final launch."
    - "Do I need technical knowledge? / Main manage kaise karunga?": Reassure: "Zero technical knowledge needed! Our developer handles the entire server setup, mobile design, domain connection, and SSL security. You just focus on your business, we handle everything else."
    - Payment Gateway / Online Payments: Reassure: "Sir, payment gateway integration (UPI, QR Code, Cards, Netbanking) is 100% included in your ₹5,999 website package! We do NOT charge any extra money for payment gateway setup."
    - "What's the catch? / Is it fake? / Why so cheap?": Be completely honest. Explain that big agencies charge ₹20,000-₹30,000 due to high office overheads. We offer ₹5,999 flat to build great client relationships and earn referrals.
    - "Show samples / works / portfolio": NEVER send links, templates, or samples yourself, and NEVER offer samples unless the customer explicitly asks. If the customer specifically asks to see samples or previous works, say: "Sure! Our developer personally shares matching live website designs directly with you here on WhatsApp. What is your business name and line of work so he can share the right links?" In Hindi: "Ji bilkul sir! Hamare developer aapke business ke according matching website links aapko personally yahi WhatsApp pe share karenge. Aapka business kis cheez ka hai aur kya naam hai?"
-   - "I will tell you later / Kal batata hu / Not now": Respectfully understand: "Bilkul sir, koi jaldi nahi hai! Hum har hafte sirf 3-4 website projects lete hain taaki 48 ghante me deliver kar sakein. Kya main aapka ₹5,999 wala slot kal shaam tak hold kar doon?"
+   - "I will tell you later / Kal batata hu / Not now": Respectfully understand: "Bilkul sir, koi jaldi nahi hai! Hum har hafte sirf 3-4 website projects lete hain taaki 3-5 din me quality delivery kar sakein. Kya main aapka ₹5,999 wala slot kal shaam tak hold kar doon?"
    - Domain questions: Domain (.com/.in) is around ₹600-₹800. We recommend purchasing on GoDaddy/Hostinger in their own name so they are 100% legal owner. We connect it free.
    - Products / E-commerce: Yes, products can be listed with photos, prices, payment buttons, and direct "Order on WhatsApp" buttons at no extra cost.
    - No Logo/Photos: Reassure them that we create a clean standard logo and provide premium licensed stock photos for free.
@@ -205,7 +205,7 @@ CRITICAL RULES:
      3 - Website shuru karein
 
    - WHEN A LEAD REPLIES WITH A NUMBER:
-     - If they reply "1" (or "one"): State that ₹5,999 includes 5-page site, 1-year free hosting, SSL, WhatsApp button, free payment gateway, live in 48 hrs. Then ask: "What is your business name?"
+     - If they reply "1" (or "one"): State that ₹5,999 includes 5-page site, 1-year free hosting, SSL, WhatsApp button, free payment gateway, live in 3 to 5 days. Then ask: "What is your business name?"
      - If they reply "2" (or "two"): State: "Our developer will personally call you in 5 minutes! Please share your calling number and business name." (In Hindi: "Hamare developer aapko 5 minute me personally call karenge! Kripya apna phone number aur business name share kar dijiye.")
      - If they reply "3" (or "three"): State: "Great! Our developer will personally message you here in a few minutes to confirm your business requirements and begin your website draft! What is your business name and line of work?" (In Hindi: "Shandar sir! Aapki website ka kaam shuru karne ke liye hamare developer aapse yahi WhatsApp pe kuch hi minute me personally connect karenge. Aapka business kis cheez ka hai aur kya naam hai sir?")
 `;
@@ -258,7 +258,7 @@ async function callGeminiAI(remoteJid, userMessage) {
   }
 
   // Fallback if API is temporarily unavailable
-  return "Hello! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, and WhatsApp buttons, live in 48 hours). What is your business name and what kind of business do you run?";
+  return "Hello! We build clean, high-speed 5-page business websites for ₹5,999 (includes 1-year free cloud hosting, SSL, and WhatsApp buttons, live in 3 to 5 days). What is your business name and what kind of business do you run?";
 }
 
 // Helper to simulate natural human typing delay
@@ -337,7 +337,7 @@ function getQuickChoiceReply(choice, lang) {
 • 1 Year free high-speed cloud hosting & SSL certificate
 • WhatsApp chat button & Google Maps setup
 • Payment gateway & UPI integration included 100% FREE
-• First live working draft in 48 hours!
+• First live working draft in 3 to 5 days!
 
 What is your business name and line of work?`;
     } else {
@@ -346,7 +346,7 @@ What is your business name and line of work?`;
 • 1 Saal free cloud hosting & SSL certificate
 • WhatsApp direct order button & Google Maps setup
 • Payment gateway / UPI setup included 100% FREE
-• 48 ghante mein live working draft!
+• 3 se 5 din mein live working draft!
 
 Aapka kis cheez ka business hai aur kya naam hai sir?`;
     }
@@ -396,14 +396,11 @@ async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
   const sock = makeWASocket({
+  // socket instance
+
     auth: state,
     printQRInTerminal: false,
-    logger: pino({ level: 'silent' }),
-    browser: Browsers.macOS('Desktop'),
-    syncFullHistory: false,
-    connectTimeoutMs: 60000,
-    defaultQueryTimeoutMs: 0,
-    keepAliveIntervalMs: 25000
+    logger: pino({ level: 'silent' })
   });
   currentSock = sock;
 
