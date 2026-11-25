@@ -15,6 +15,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 let currentQR = null;
 let isConnected = false;
+let currentSock = null;
 
 app.get('/', (req, res) => {
   res.send(`
@@ -35,10 +36,47 @@ app.get('/', (req, res) => {
             </ul>
           </div>
           ${!isConnected ? '<p style="margin-top: 25px;"><a href="/qr" style="padding: 12px 24px; background: #25D366; color: white; text-decoration: none; border-radius: 6px; font-weight: bold;">Scan QR Code to Link WhatsApp</a></p>' : ''}
+          <p style="margin-top: 20px;"><a href="/reset" style="padding: 10px 20px; background: #e53e3e; color: white; text-decoration: none; border-radius: 6px; font-size: 13px; font-weight: 500;">Disconnect & Link New WhatsApp Number</a></p>
         </div>
       </body>
     </html>
   `);
+});
+
+
+app.get("/reset", async (req, res) => {
+  try {
+    isConnected = false;
+    currentQR = null;
+    if (currentSock) {
+      try {
+        currentSock.ev.removeAllListeners("connection.update");
+        currentSock.ev.removeAllListeners("creds.update");
+        currentSock.ev.removeAllListeners("messages.upsert");
+        currentSock.end(new Error("Resetting for new phone pairing"));
+      } catch (e) {
+        console.error("Error closing socket:", e);
+      }
+    }
+    const authDir = path.join(__dirname, "auth_info_baileys");
+    if (fs.existsSync(authDir)) {
+      fs.rmSync(authDir, { recursive: true, force: true });
+    }
+    setTimeout(() => {
+      connectToWhatsApp();
+    }, 1500);
+    res.send(`
+      <html>
+        <head><meta http-equiv="refresh" content="3;url=/qr"><title>Resetting...</title></head>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px; background: #f8f9fa;">
+          <h2>Session cleared! Generating new QR code...</h2>
+          <p>Redirecting to <a href="/qr">QR Scan Page</a> in 3 seconds...</p>
+        </body>
+      </html>
+    `);
+  } catch (err) {
+    res.status(500).send("Error resetting session: " + err.message);
+  }
 });
 
 app.get('/qr', async (req, res) => {
@@ -358,10 +396,13 @@ async function connectToWhatsApp() {
   const { state, saveCreds } = await useMultiFileAuthState('auth_info_baileys');
 
   const sock = makeWASocket({
+  // socket instance
+
     auth: state,
     printQRInTerminal: false,
     logger: pino({ level: 'silent' })
   });
+  currentSock = sock;
 
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
