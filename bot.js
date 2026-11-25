@@ -327,7 +327,6 @@ function detectCustomerLanguage(text, existingLang = 'HINDI') {
 
 // User language preference tracking
 const userLanguages = new Map();
-const welcomedUsers = new Set();
 
 // Direct fast-path for quick reply choices 1, 2, 3
 function getQuickChoiceReply(choice, lang) {
@@ -461,14 +460,9 @@ async function connectToWhatsApp() {
       const cleanText = text.trim();
       if (!cleanText) return;
 
-      const isKnownAdLead = confirmedAdLeads.has(remoteJid);
-
-      // Lead check: First time message must look like a customer inquiry or ad lead
-      if (!isKnownAdLead) {
-        if (!isCustomerInquiry(msg, cleanText)) {
-          return; // Ignore completely unrelated casual personal messages
-        }
-        console.log(`[🎯 NEW AD LEAD from ${remoteJid}]: ${cleanText}`);
+      const isFirstMessage = !confirmedAdLeads.has(remoteJid);
+      if (isFirstMessage) {
+        console.log(`[🎯 NEW LEAD from ${remoteJid}]: ${cleanText}`);
         confirmedAdLeads.add(remoteJid);
         saveAdLeads();
       }
@@ -491,8 +485,6 @@ async function connectToWhatsApp() {
         }
       }
 
-      const isFirstMessage = !welcomedUsers.has(remoteJid);
-      welcomedUsers.add(remoteJid);
 
       // 2. AI PATH: Process any custom inquiry through Gemini AI
       let aiReply = await callGeminiAI(remoteJid, cleanText);
