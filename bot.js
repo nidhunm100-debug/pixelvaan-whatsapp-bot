@@ -191,7 +191,7 @@ CRITICAL RULES:
    - Directly answer the question in line 1, give essential info in line 2, and add quick reply choices.
 
 5. NUMBERED QUICK CHOICES SYSTEM (ZERO-TYPING FOR LEADS):
-   - Whenever welcoming a lead or finishing an answer, attach 3 easy tap/reply options at the bottom:
+   - ONLY on the very FIRST message/greeting to a new lead, attach 3 easy tap/reply options at the bottom. NEVER include or repeat these 3 numbered options in subsequent answers or follow-up conversations:
      In English:
      Reply:
      1 - Package details
@@ -327,6 +327,7 @@ function detectCustomerLanguage(text, existingLang = 'HINDI') {
 
 // User language preference tracking
 const userLanguages = new Map();
+const welcomedUsers = new Set();
 
 // Direct fast-path for quick reply choices 1, 2, 3
 function getQuickChoiceReply(choice, lang) {
@@ -379,15 +380,26 @@ Aapka business kis cheez ka hai aur kya naam hai sir?`;
   return null;
 }
 
-// Attach quick choices footer
-function attachQuickChoices(replyText, lang) {
-  if (replyText.includes('1 -') || replyText.includes('1.') || replyText.includes('Reply 1')) {
+// Strip quick choices footer if AI mistakenly repeats it on follow-up turns
+function stripQuickChoices(replyText) {
+  return replyText
+    .replace(/\n*(Reply( kijiye)?|Jawab dijiye)?:?\s*\n*1\s*[-–.]\s*Package details\s*\n*2\s*[-–.]\s*(Call with developer|Developer se call)\s*\n*3\s*[-–.]\s*(Start my website|Website shuru karein)[^\n]*/gi, "")
+    .trim();
+}
+
+// Attach quick choices footer ONLY on the very first message
+function attachQuickChoices(replyText, lang, isFirstMessage) {
+  if (!isFirstMessage) {
+    return stripQuickChoices(replyText);
+  }
+
+  if (replyText.includes("1 -") || replyText.includes("1.") || replyText.includes("Reply 1") || replyText.includes("Package details")) {
     return replyText; // Already has choices
   }
 
-  const menu = lang === 'ENGLISH'
-    ? `\n\nReply:\n1 - Package details\n2 - Call with developer\n3 - Start my website`
-    : `\n\nReply kijiye:\n1 - Package details\n2 - Developer se call\n3 - Website shuru karein`;
+  const menu = lang === "ENGLISH"
+    ? "\n\nReply:\n1 - Package details\n2 - Call with developer\n3 - Start my website"
+    : "\n\nReply kijiye:\n1 - Package details\n2 - Developer se call\n3 - Website shuru karein";
 
   return replyText + menu;
 }
@@ -479,11 +491,14 @@ async function connectToWhatsApp() {
         }
       }
 
+      const isFirstMessage = !welcomedUsers.has(remoteJid);
+      welcomedUsers.add(remoteJid);
+
       // 2. AI PATH: Process any custom inquiry through Gemini AI
       let aiReply = await callGeminiAI(remoteJid, cleanText);
 
-      // If AI didn't include the menu, attach the quick reply choices at the bottom
-      aiReply = attachQuickChoices(aiReply, detectedLang);
+      // Attach quick reply choices ONLY on the very first message, strip if repeated later
+      aiReply = attachQuickChoices(aiReply, detectedLang, isFirstMessage);
       console.log(`[🤖 Gemini AI Sales]: ${aiReply}`);
 
       await humanReply(sock, remoteJid, aiReply, 1800);
