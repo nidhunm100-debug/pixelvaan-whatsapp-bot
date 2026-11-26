@@ -13,9 +13,8 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 const GEMINI_MODELS = [
   process.env.GEMINI_MODEL,
   'gemini-flash-lite-latest',
-  ['gemini', '3.5', 'flash', 'lite'].join('-'),
-  ['gemini', '3', 'flash', 'preview'].join('-'),
-  ['gemini', '3.1', 'flash', 'lite'].join('-'),
+  'Claude',
+  'Claude',
   'gemma-4-26b-a4b-it'
 ].filter(Boolean);
 
@@ -264,7 +263,7 @@ function sanitizeHistory(rawHistory) {
 }
 
 // Call Gemini API with Multi-Model Failover
-async function callGeminiAI(remoteJid, userMessage) {
+async function callGeminiAI(remoteJid, userMessage, detectedLang = 'HINDI') {
   const history = getHistory(remoteJid);
 
   // Append new user message
@@ -277,13 +276,22 @@ async function callGeminiAI(remoteJid, userMessage) {
 
   const cleanHistory = sanitizeHistory(history);
 
+  let langDirective = "";
+  if (detectedLang === "ENGLISH") {
+    langDirective = "\n\n[MANDATORY PER-TURN LANGUAGE DIRECTIVE]\nThe customer has written this latest message in ENGLISH. Regardless of any past Hindi or Hinglish messages in the conversation history, you MUST respond ONLY in clear, polite, natural Indian English. Do NOT use Hindi, Hinglish, or Devanagari words. Keep it strictly 2 to 3 short sentences.";
+  } else if (detectedLang === "KANNADA") {
+    langDirective = "\n\n[MANDATORY PER-TURN LANGUAGE DIRECTIVE]\nThe customer has written in KANNADA. Reply in simple polite Kannada or simple English. Keep it strictly 2 to 3 short sentences.";
+  } else {
+    langDirective = "\n\n[MANDATORY PER-TURN LANGUAGE DIRECTIVE]\nThe customer has written in HINDI / HINGLISH. Reply in warm, natural, respectful conversational Hindi / Hinglish. Keep it strictly 2 to 3 short sentences.";
+  }
+
   const payload = {
     system_instruction: {
-      parts: [{ text: SYSTEM_PROMPT }]
+      parts: [{ text: SYSTEM_PROMPT + langDirective }]
     },
     contents: cleanHistory,
     generationConfig: {
-      temperature: 0.5,
+      temperature: 0.4,
       maxOutputTokens: 250
     }
   };
@@ -426,15 +434,58 @@ function extractMessageContent(rawMsg) {
 
 // Helper to detect language
 function detectCustomerLanguage(text, existingLang = 'HINDI') {
+  if (!text || typeof text !== 'string') return existingLang;
   if (/[ऀ-ॿ]/.test(text)) return 'HINDI';
   if (/[ಀ-೿]/.test(text)) return 'KANNADA';
-  const lower = text.toLowerCase().trim();
-  const hindiWords = ['kya', 'hai', 'hain', 'kaise', 'kitna', 'kuch', 'dikhao', 'kaam', 'baad', 'badme', 'kal', 'bhejo', 'batao', 'chahiye', 'paisa', 'theek', 'shuru', 'bhai', 'sir ji'];
-  const words = lower.split(/[^a-zA-Z0-9]+/);
-  if (words.some(w => hindiWords.includes(w))) return 'HINDI';
 
-  const englishWords = ['website', 'hello', 'hi', 'hey', 'details', 'price', 'cost', 'learn', 'business', 'call', 'samples', 'work', 'package', 'offer', 'interested', 'more'];
-  if (words.some(w => englishWords.includes(w))) return 'ENGLISH';
+  const lower = text.toLowerCase().trim();
+
+  // Distinctive English marker tokens (pronouns, auxiliaries, common questions, verbs, business words)
+  const englishTokens = new Set([
+    'the', 'is', 'am', 'are', 'was', 'were', 'can', 'could', 'will', 'would', 'do', 'does', 'did',
+    'have', 'has', 'had', 'what', 'how', 'why', 'when', 'where', 'which', 'who', 'i', 'you', 'we',
+    'they', 'my', 'your', 'our', 'need', 'want', 'make', 'build', 'create', 'please', 'thanks',
+    'thank', 'website', 'price', 'cost', 'detail', 'details', 'package', 'offer', 'call', 'sample',
+    'samples', 'work', 'ecommerce', 'shop', 'store', 'online', 'business', 'domain', 'hosting',
+    'payment', 'gateway', 'draft', 'design', 'help', 'know', 'tell', 'show', 'send', 'much', 'many',
+    'start', 'interested', 'good', 'service', 'services', 'provide', 'info', 'information', 'about',
+    'hello', 'hi', 'hey', 'yes', 'no', 'ok', 'okay', 'sure', 'fine', 'ready', 'for', 'with',
+    'and', 'but', 'or', 'so', 'in', 'on', 'at', 'to', 'from', 'up', 'down', 'this', 'that',
+    'these', 'those', 'any', 'some', 'me', 'us', 'them', 'him', 'her', 'it', 'its', 'let', 'now'
+  ]);
+
+  // Distinctive Hindi / Hinglish tokens
+  const hindiTokens = new Set([
+    'kya', 'kyu', 'kyun', 'kaise', 'kitna', 'kitne', 'kitni', 'chahiye', 'batao', 'bataiye',
+    'bhejo', 'bhejiye', 'dikhao', 'dikhaye', 'hai', 'ho', 'hu', 'hoon', 'hain', 'tha', 'thi',
+    'the', 'kaam', 'kharcha', 'paisa', 'paise', 'rupaye', 'rupiya', 'bhai', 'bhaiya', 'shuru',
+    'karo', 'kijiye', 'karenge', 'karna', 'lena', 'de', 'do', 'dena', 'theek', 'thik', 'accha',
+    'achha', 'sahi', 'badme', 'baad', 'kal', 'abhi', 'hum', 'hume', 'mera', 'meri', 'mere',
+    'aap', 'aapka', 'aapki', 'aapke', 'tum', 'tumhara', 'nahi', 'nahin', 'mat', 'kaha', 'kidhar',
+    'kab', 'kisko', 'kise', 'kuch', 'kuchh', 'samjhao', 'lagta', 'lagega', 'hoga', 'hogi', 'milta',
+    'milega', 'banwana', 'banega', 'banayenge', 'kholna', 'banao', 'daal', 'daalo', 'sir', 'ji'
+  ]);
+
+  // Distinctive Kannada / Kanglish tokens
+  const kannadaTokens = new Set([
+    'beku', 'bekagide', 'yestu', 'hesaru', 'madbeku', 'madi', 'kodi', 'hege', 'yelli', 'enu', 'illa', 'houdu', 'namaskara', 'dhanyavada'
+  ]);
+
+  const words = lower.split(/[^a-zA-Z0-9]+/);
+  let engScore = 0;
+  let hinScore = 0;
+  let kanScore = 0;
+
+  for (const w of words) {
+    if (!w) continue;
+    if (englishTokens.has(w)) engScore++;
+    if (hindiTokens.has(w)) hinScore++;
+    if (kannadaTokens.has(w)) kanScore++;
+  }
+
+  if (kanScore > engScore && kanScore > hinScore) return 'KANNADA';
+  if (engScore > hinScore) return 'ENGLISH';
+  if (hinScore > engScore) return 'HINDI';
 
   return existingLang;
 }
@@ -654,7 +705,7 @@ async function connectToWhatsApp() {
         }
 
         // 2. AI PATH: Process custom inquiry through Multi-Model Gemini AI
-        let aiReply = await callGeminiAI(remoteJid, cleanText);
+        let aiReply = await callGeminiAI(remoteJid, cleanText, detectedLang);
 
         // Attach quick reply choices ONLY on the very first message, strip if repeated later
         aiReply = attachQuickChoices(aiReply, detectedLang, isFirstMessage);
